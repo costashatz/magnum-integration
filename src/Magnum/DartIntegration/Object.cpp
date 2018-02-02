@@ -24,16 +24,16 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-#include "DartObject.h"
+#include "Object.h"
 
 #include <dart/dynamics/BodyNode.hpp>
 #include <dart/dynamics/ShapeNode.hpp>
 
 namespace Magnum { namespace DartIntegration {
 
-DartObject::DartObject(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body} {}
+Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body} {}
 
-DartObject& DartObject::setShapeNode(dart::dynamics::ShapeNode* node) {
+Object& Object::setShapeNode(dart::dynamics::ShapeNode* node) {
     _node = node;
     _body = nullptr;
 
@@ -42,7 +42,7 @@ DartObject& DartObject::setShapeNode(dart::dynamics::ShapeNode* node) {
     return *this;
 }
 
-DartObject& DartObject::setBodyNode(dart::dynamics::BodyNode* body) {
+Object& Object::setBodyNode(dart::dynamics::BodyNode* body) {
     _node = nullptr;
     _body = body;
 
@@ -51,7 +51,7 @@ DartObject& DartObject::setBodyNode(dart::dynamics::BodyNode* body) {
     return *this;
 }
 
-DartObject& DartObject::update() {
+Object& Object::update() {
     /* Get transform from DART */
     /** @todo Check if getting translation like this is correct */
     Eigen::Isometry3d trans;

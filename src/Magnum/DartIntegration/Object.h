@@ -1,5 +1,5 @@
-#ifndef Magnum_DartIntegration_DartObject_h
-#define Magnum_DartIntegration_DartObject_h
+#ifndef Magnum_DartIntegration_Object_h
+#define Magnum_DartIntegration_Object_h
 /*
     This file is part of Magnum.
 
@@ -27,7 +27,7 @@
 */
 
 /** @file
- * @brief Class @ref Magnum::DartIntegration::DartObject
+ * @brief Class @ref Magnum::DartIntegration::Object
  */
 
 #include <Magnum/SceneGraph/AbstractFeature.h>
@@ -47,15 +47,15 @@ namespace Magnum { namespace DartIntegration {
 
 Encapsulates `BodyNode` or `ShapeNode` as a @ref SceneGraph feature.
 
-@section DartIntegration-DartObject-usage Usage
+@section DartIntegration-Object-usage Usage
 
-Common usage is to create a @ref DartObject to share transformation with a DART
+Common usage is to create a @ref Object to share transformation with a DART
 `BodyNode` or `ShapeNode` by passing a pointer to its constructor:
 
 @code{.cpp}
 dart::dynamics::BodyNode* body = getBodyNodeFromDart();
 SceneGraph::Object<SceneGraph::MatrixTransformation3D> object;
-DartObject* obj = new DartObject{&object, body};
+Object* obj = new Object{&object, body};
 @endcode
 
 or
@@ -63,30 +63,30 @@ or
 @code{.cpp}
 dart::dynamics::ShapeNode* node = getShapeNodeFromDart();
 SceneGraph::Object<SceneGraph::MatrixTransformation3D> object;
-DartObject* obj = new DartObject{&object, node};
+Object* obj = new Object{&object, node};
 @endcode
 
 Only the DART body/node can affect the transformation of the Magnum object and
 not the other way around. To get the latest DART transformation, you should
 update the object with @ref update().
 */
-class MAGNUM_DARTINTEGRATION_EXPORT DartObject: public SceneGraph::AbstractBasicFeature3D<Float> {
+class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeature3D<Float> {
     public:
         /**
          * @brief Constructor
-         * @param object    Object this @ref DartObject belongs to
+         * @param object    Object this @ref Object belongs to
          * @param node      DART `ShapeNode` to connect with
          */
-        template<class T> DartObject(T& object, dart::dynamics::ShapeNode* node = nullptr): DartObject{object, object, node, nullptr} {
+        template<class T> Object(T& object, dart::dynamics::ShapeNode* node = nullptr): Object{object, object, node, nullptr} {
             if(_node) update();
         }
 
         /**
          * @brief Constructor
-         * @param object    Object this @ref DartObject belongs to
+         * @param object    Object this @ref Object belongs to
          * @param body      DART `BodyNode` to connect with
          */
-        template<class T> DartObject(T& object, dart::dynamics::BodyNode* body = nullptr): DartObject{object, object, nullptr, body} {
+        template<class T> Object(T& object, dart::dynamics::BodyNode* body = nullptr): Object{object, object, nullptr, body} {
             if(_body) update();
         }
 
@@ -95,17 +95,17 @@ class MAGNUM_DARTINTEGRATION_EXPORT DartObject: public SceneGraph::AbstractBasic
          *
          * This will disconnect from any connected `BodyNode`.
          */
-        DartObject& setShapeNode(dart::dynamics::ShapeNode* node);
+        Object& setShapeNode(dart::dynamics::ShapeNode* node);
 
         /**
          * @brief Connect with `BodyNode`
          *
          * This will disconnect from any connected `ShapeNode`.
          */
-        DartObject& setBodyNode(dart::dynamics::BodyNode* body);
+        Object& setBodyNode(dart::dynamics::BodyNode* body);
 
         /** @brief Get transformation from DART */
-        DartObject& update();
+        Object& update();
 
         /** @brief Underlying DART `ShapeNode` */
         dart::dynamics::ShapeNode* shapeNode() { return _node; }
@@ -114,7 +114,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT DartObject: public SceneGraph::AbstractBasic
         dart::dynamics::BodyNode* bodyNode() { return _body; }
 
     private:
-        explicit DartObject(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body);
+        explicit Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body);
 
         SceneGraph::AbstractBasicTranslationRotation3D<Float>& _transformation;
         dart::dynamics::ShapeNode* _node;

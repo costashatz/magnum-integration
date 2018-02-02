@@ -44,7 +44,7 @@
 #include <Magnum/Primitives/Icosphere.h>
 #include <Magnum/Trade/AbstractImporter.h>
 
-#include "Magnum/DartIntegration/DartObject.h"
+#include "Object.h"
 
 namespace Magnum { namespace DartIntegration {
 
@@ -185,7 +185,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
     return Containers::NullOpt;
 }
 
-Containers::Optional<ShapeData> convertShapeNode(DartObject& object) {
+Containers::Optional<ShapeData> convertShapeNode(Object& object) {
     return convertShapeNode(*object.shapeNode());
 }
 

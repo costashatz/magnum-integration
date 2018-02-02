@@ -36,14 +36,14 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configure.h.cmake
 
 set(MagnumDartIntegration_SRCS
     ConvertShapeNode.cpp
-    DartObject.cpp
-    DartSkeleton.cpp)
+    Object.cpp
+    Skeleton.cpp)
 
 set(MagnumDartIntegration_HEADERS
     ConvertShapeNode.h
     DartIntegration.h
-    DartObject.h
-    DartSkeleton.h
+    Object.h
+    Skeleton.h
 
     visibility.h)
 

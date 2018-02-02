@@ -94,11 +94,11 @@ The following DART shapes are not yet supported:
 Containers::Optional<ShapeData> MAGNUM_DARTINTEGRATION_EXPORT convertShapeNode(dart::dynamics::ShapeNode& shapeNode);
 
 /**
-@brief Convert @ref DartObject to mesh and material data
+@brief Convert @ref Object to mesh and material data
 
 See @ref convertShapeNode(dart::dynamics::ShapeNode&) for more information.
 */
-Containers::Optional<ShapeData> MAGNUM_DARTINTEGRATION_EXPORT convertShapeNode(DartObject& object);
+Containers::Optional<ShapeData> MAGNUM_DARTINTEGRATION_EXPORT convertShapeNode(Object& object);
 
 }}
 

@@ -24,35 +24,35 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-#include "DartSkeleton.h"
+#include "Skeleton.h"
 
 namespace Magnum { namespace DartIntegration {
 
-DartSkeleton& DartSkeleton::updateObjects() {
+Skeleton& Skeleton::updateObjects() {
     for(auto& obj: _objects)
         obj->update();
 
     return *this;
 }
 
-std::vector<std::reference_wrapper<DartObject>> DartSkeleton::objects() {
-    std::vector<std::reference_wrapper<DartObject>> objects;
+std::vector<std::reference_wrapper<Object>> Skeleton::objects() {
+    std::vector<std::reference_wrapper<Object>> objects;
     for(auto& obj: _objects)
         objects.emplace_back(std::ref(*obj));
 
     return objects;
 }
 
-std::vector<std::reference_wrapper<DartObject>> DartSkeleton::shapeObjects() {
-    std::vector<std::reference_wrapper<DartObject>> objects;
+std::vector<std::reference_wrapper<Object>> Skeleton::shapeObjects() {
+    std::vector<std::reference_wrapper<Object>> objects;
     for(auto& obj: _objects) if(obj->shapeNode())
         objects.emplace_back(std::ref(*obj));
 
     return objects;
 }
 
-std::vector<std::reference_wrapper<DartObject>> DartSkeleton::bodyObjects() {
-    std::vector<std::reference_wrapper<DartObject>> objects;
+std::vector<std::reference_wrapper<Object>> Skeleton::bodyObjects() {
+    std::vector<std::reference_wrapper<Object>> objects;
     for(auto& obj: _objects) if(obj->bodyNode())
         objects.emplace_back(std::ref(*obj));
 

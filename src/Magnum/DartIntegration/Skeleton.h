@@ -1,5 +1,5 @@
-#ifndef Magnum_DartIntegration_DartSkeleton_h
-#define Magnum_DartIntegration_DartSkeleton_h
+#ifndef Magnum_DartIntegration_Skeleton_h
+#define Magnum_DartIntegration_Skeleton_h
 /*
     This file is part of Magnum.
 
@@ -27,7 +27,7 @@
 */
 
 /** @file
- * @brief Class @ref Magnum::DartIntegration::DartSkeleton
+ * @brief Class @ref Magnum::DartIntegration::Skeleton
  */
 
 #include <functional>
@@ -37,7 +37,7 @@
 #include <dart/dynamics/ShapeNode.hpp>
 #include <dart/dynamics/Skeleton.hpp>
 
-#include "Magnum/DartIntegration/DartObject.h"
+#include "Magnum/DartIntegration/Object.h"
 
 namespace Magnum { namespace DartIntegration {
 
@@ -45,38 +45,38 @@ namespace Magnum { namespace DartIntegration {
 @brief DART Physics Skeleton (i.e., Multi-Body entity)
 
 Parses a DART `Skeleton` for easy usage in Magnum. It basically parses the
-`Skeleton` and keeps track of a list of @ref DartObject instances.
+`Skeleton` and keeps track of a list of @ref Object instances.
 
-@section DartIntegration-DartSkeleton-usage Usage
+@section DartIntegration-Skeleton-usage Usage
 
 Common usage is to create a DART `SkeletonPtr` and then instantiate
-a `DartSkeleton` by passing a parent @ref SceneGraph feature and
+a `Skeleton` by passing a parent @ref SceneGraph feature and
 the `SkeletonPtr` to its constructor:
 
 @code{.cpp}
 dart::dynamics::SkeletonPtr skel = createSkeletonInDart();
 SceneGraph::Object<SceneGraph::MatrixTransformation3D> object;
-DartSkeleton* dartSkel = new DartSkeleton{object, skel};
+Skeleton* dartSkel = new Skeleton{object, skel};
 @endcode
 
 Only the DART Skeleton can affect the transformation of the Magnum
-@ref DartSkeleton and not the other way around. To get the latest DART
+@ref Skeleton and not the other way around. To get the latest DART
 transformations, you should update the objects using @ref updateObjects().
 
-@section DartIntegration-DartSkeleton-limitations Limitations
+@section DartIntegration-Skeleton-limitations Limitations
 
 -   `SoftBodyNode`s are not supported yet
--   When changing the structure of a `SkeletonPtr`, @ref DartSkeleton will not
+-   When changing the structure of a `SkeletonPtr`, @ref Skeleton will not
     automatically update
 */
-class MAGNUM_DARTINTEGRATION_EXPORT DartSkeleton {
+class MAGNUM_DARTINTEGRATION_EXPORT Skeleton {
     public:
          /**
          * @brief Constructor
          * @param parent    Parent object
          * @param skeleton  DART `SkeletonPtr` to parse
          */
-        template<class T> explicit DartSkeleton(T& parent, dart::dynamics::SkeletonPtr skeleton = nullptr) {
+        template<class T> explicit Skeleton(T& parent, dart::dynamics::SkeletonPtr skeleton = nullptr) {
             if(skeleton) parseSkeleton(parent, skeleton);
         }
 
@@ -86,7 +86,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT DartSkeleton {
          * @param skeleton  DART `SkeletonPtr` to parse
          * @return Reference to self
          */
-        template<class T> DartSkeleton& parseSkeleton(T& parent, dart::dynamics::SkeletonPtr skeleton) {
+        template<class T> Skeleton& parseSkeleton(T& parent, dart::dynamics::SkeletonPtr skeleton) {
             /** @todo Support more than one kinematic tree */
             if(skeleton) {
                 _objects.clear();
@@ -97,34 +97,34 @@ class MAGNUM_DARTINTEGRATION_EXPORT DartSkeleton {
         }
 
         /** @brief Update all child objects */
-        DartSkeleton& updateObjects();
+        Skeleton& updateObjects();
 
         /** @brief Get all objects */
-        std::vector<std::reference_wrapper<DartObject>> objects();
+        std::vector<std::reference_wrapper<Object>> objects();
 
         /** @brief Get all objects associated with `ShapeNode`s */
-        std::vector<std::reference_wrapper<DartObject>> shapeObjects();
+        std::vector<std::reference_wrapper<Object>> shapeObjects();
 
         /** @brief Get all objects associated with `BodyNode`s */
-        std::vector<std::reference_wrapper<DartObject>> bodyObjects();
+        std::vector<std::reference_wrapper<Object>> bodyObjects();
 
     private:
         template<class T> void parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn);
 
-        std::vector<std::unique_ptr<DartObject>> _objects;
+        std::vector<std::unique_ptr<Object>> _objects;
 };
 
-template<class T> void DartSkeleton::parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn) {
+template<class T> void Skeleton::parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn) {
     /* Parse the BodyNode -- we care only about visuals */
     auto visualShapes = bn.getShapeNodesWith<dart::dynamics::VisualAspect>();
 
     /* Create an object of the BodyNode to keep track of transformations */
     auto object = new T{&parent};
-    _objects.push_back(std::unique_ptr<DartObject>(new DartObject{*object, &bn}));
+    _objects.push_back(std::unique_ptr<Object>(new Object{*object, &bn}));
     for(auto& shape: visualShapes) {
         /* create objects for the ShapeNodes to keep track of inner transformations */
         auto shapeObj = new T{object};
-        _objects.emplace_back(std::unique_ptr<DartObject>(new DartObject{*shapeObj, shape}));
+        _objects.emplace_back(std::unique_ptr<Object>(new Object{*shapeObj, shape}));
     }
 
     /* parse the children recursively */

@@ -45,7 +45,7 @@
 #include <Magnum/Trade/TextureData.h>
 
 #include "Magnum/DartIntegration/ConvertShapeNode.h"
-#include "Magnum/DartIntegration/DartSkeleton.h"
+#include "Magnum/DartIntegration/Skeleton.h"
 #include "Magnum/DartIntegration/Test/configure.h"
 
 #define DART_URDF (MAGNUM_DART_URDF_FOUND > 0 && DART_MAJOR_VERSION >= 6)
@@ -187,7 +187,7 @@ void DartSkeletonTest::test() {
     Scene3D scene;
     Object3D* obj = new Object3D{&scene};
 
-    auto skel = std::make_shared<DartSkeleton>(*obj, pendulum);
+    auto skel = std::make_shared<Skeleton>(*obj, pendulum);
 
     /* Set the initial joint positions so that the pendulum
        starts to swing right away */
@@ -238,14 +238,14 @@ void DartSkeletonTest::urdf() {
     Scene3D scene;
     Object3D* obj = new Object3D{&scene};
 
-    auto skel = std::make_shared<DartSkeleton>(*obj, tmp_skel);
+    auto skel = std::make_shared<Skeleton>(*obj, tmp_skel);
 
     world->step();
     skel->updateObjects();
     std::size_t pts[] = {1524, 1682, 2554, 1514, 2442, 706, 3872};
 
     std::size_t j = 0;
-    for(DartObject& dartObj: skel->shapeObjects()) {
+    for(Object& dartObj: skel->shapeObjects()) {
         auto shape = dartObj.shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), "MeshShape");
         auto mydata = convertShapeNode(dartObj);
@@ -284,12 +284,12 @@ void DartSkeletonTest::texture() {
     Scene3D scene;
     Object3D* obj = new Object3D{&scene};
 
-    auto skel = std::make_shared<DartSkeleton>(*obj, tmp_skel);
+    auto skel = std::make_shared<Skeleton>(*obj, tmp_skel);
 
     world->step();
     skel->updateObjects();
 
-    for(DartObject& dartObj: skel->shapeObjects()) {
+    for(Object& dartObj: skel->shapeObjects()) {
         auto shape = dartObj.shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), "MeshShape");
         auto mydata = convertShapeNode(dartObj);

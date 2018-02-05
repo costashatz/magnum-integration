@@ -45,7 +45,13 @@ namespace dart { namespace dynamics {
     class ShapeNode;
 }}
 
-namespace Magnum { namespace DartIntegration {
+namespace Magnum {
+
+class Mesh;
+class Buffer;
+template<UnsignedInt dimensions> class Texture;
+
+namespace DartIntegration {
 
 /**
 @brief Shape data
@@ -53,21 +59,20 @@ namespace Magnum { namespace DartIntegration {
 @see @ref convertShapeNode()
 */
 struct ShapeData {
-    #ifndef DOXYGEN_GENERATING_OUTPUT
-    explicit ShapeData(Trade::MeshData3D mesh, Trade::PhongMaterialData material, Containers::Array<Containers::Optional<Trade::ImageData2D>> images, Containers::Array<Containers::Optional<Trade::TextureData>> textures): mesh{std::move(mesh)}, material{std::move(material)}, images{std::move(images)}, textures{std::move(textures)} {}
-    #endif
+    /** @brief Mesh */
+    Mesh* mesh;
 
-    /** @brief Mesh data */
-    Trade::MeshData3D mesh;
+    /** @brief vertex Buffer */
+    Buffer* vertexBuffer;
+
+    /** @brief index Buffer */
+    Buffer* indexBuffer;
 
     /** @brief Material data */
     Trade::PhongMaterialData material;
 
-    /** @brief Image data */
-    Containers::Array<Containers::Optional<Trade::ImageData2D>> images;
-
-    /** @brief Texture data */
-    Containers::Array<Containers::Optional<Trade::TextureData>> textures;
+    /** @brief Textures */
+    Containers::Array<Texture<2>*> textures;
 };
 
 /**
@@ -81,6 +86,7 @@ not supported. The following DART shapes are supported:
 -   `CylinderShape`
 -   `EllipsoidShape`
 -   `MeshShape`
+-   `SoftMeshShape`
 -   `SphereShape`
 
 The following DART shapes are not yet supported:
@@ -89,7 +95,6 @@ The following DART shapes are not yet supported:
 -   `LineSegmentShape`
 -   `MultiSphereConvexHullShape`
 -   `PlaneShape` (this is an infinite plane with normal)
--   `SoftMeshShape`
 */
 Containers::Optional<ShapeData> MAGNUM_DARTINTEGRATION_EXPORT convertShapeNode(dart::dynamics::ShapeNode& shapeNode);
 

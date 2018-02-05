@@ -80,9 +80,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
          * @param object    Object this @ref Object belongs to
          * @param node      DART `ShapeNode` to connect with
          */
-        template<class T> Object(T& object, dart::dynamics::ShapeNode* node = nullptr): Object{object, object, node, nullptr} {
-            if(_node) _convertShapeNode();
-        }
+        template<class T> Object(T& object, dart::dynamics::ShapeNode* node = nullptr): Object{object, object, node, nullptr} {}
 
         /**
          * @brief Constructor

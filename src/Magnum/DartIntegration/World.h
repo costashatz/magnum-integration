@@ -67,8 +67,13 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
 
         World& refresh();
         World& step();
+        std::vector<std::shared_ptr<Object>> clearUnusedObjects();
+        std::vector<std::shared_ptr<Object>> getUnusedObjects();
 
         std::vector<std::shared_ptr<Object>> objects();
+        std::vector<std::shared_ptr<Object>> shapeObjects();
+        std::vector<std::shared_ptr<Object>> bodyObjects();
+        std::shared_ptr<Object> objectFromDartFrame(dart::dynamics::Frame* frame);
 
     private:
         SceneGraph::AbstractBasicObject3D<Float>*(*_objectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent);
@@ -81,6 +86,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         SceneGraph::AbstractBasicObject3D<Float>& _scene;
         std::shared_ptr<dart::simulation::World> _dartWorld;
         std::unordered_map<dart::dynamics::Frame*, std::shared_ptr<Object>> _dartToMagnum;
+        std::vector<std::shared_ptr<Object>> _toRemove;
 };
 
 template <class T> void World::_parseSkeleton(T& parent, dart::dynamics::Skeleton& skel){

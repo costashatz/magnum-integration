@@ -32,11 +32,16 @@
 #include <dart/dynamics/EllipsoidShape.hpp>
 #include <dart/dynamics/MeshShape.hpp>
 #include <dart/dynamics/ShapeNode.hpp>
+#include <dart/dynamics/SoftMeshShape.hpp>
 #include <dart/dynamics/SphereShape.hpp>
 #include <Corrade/PluginManager/Manager.h>
 #include <Corrade/Utility/Directory.h>
+#include <Magnum/Buffer.h>
+#include <Magnum/Mesh.h>
 #include <Magnum/PixelFormat.h>
+#include <Magnum/Texture.h>
 #include <Magnum/TextureFormat.h>
+#include <Magnum/MeshTools/Compile.h>
 #include <Magnum/MeshTools/Transform.h>
 #include <Magnum/Primitives/Capsule.h>
 #include <Magnum/Primitives/Cube.h>
@@ -49,6 +54,12 @@
 namespace Magnum { namespace DartIntegration {
 
 Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shapeNode) {
+    /* We only need to load AssimpImporter once */
+    static PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
+    static std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
+    if (!importer)
+        return Containers::NullOpt;
+
     dart::dynamics::ShapePtr shape = shapeNode.getShape();
 
     /* Get material information -- we ignore the alpha value
@@ -71,7 +82,12 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         /* Multiplying by 0.5f because the cube is 2x2x2 */
         MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(size(0), size(1), size(2))*0.5f), meshData.positions(0));
 
-        return ShapeData{std::move(meshData), std::move(matData), {}, {}};
+        /* Create the mesh */
+        Mesh* mesh = new Mesh{NoCreate};
+        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
+
+        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::CapsuleShape::getStaticType()) {
@@ -84,7 +100,12 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         Trade::MeshData3D meshData{Primitives::Capsule3D::solid(32, 32, 32, halfLength)};
         MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{r}), meshData.positions(0));
 
-        return ShapeData{std::move(meshData), std::move(matData), {}, {}};
+        /* Create the mesh */
+        Mesh* mesh = new Mesh{NoCreate};
+        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
+
+        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::CylinderShape::getStaticType()) {
@@ -97,7 +118,12 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         Trade::MeshData3D meshData{Primitives::Cylinder::solid(32, 32, halfLength)};
         MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{r}), meshData.positions(0));
 
-        return ShapeData{std::move(meshData), std::move(matData), {}, {}};
+        /* Create the mesh */
+        Mesh* mesh = new Mesh{NoCreate};
+        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
+
+        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::EllipsoidShape::getStaticType()) {
@@ -108,22 +134,22 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         Trade::MeshData3D meshData{Primitives::Icosphere::solid(5)};
         MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{Float(size(0)), Float(size(1)), Float(size(2))}), meshData.positions(0));
 
-        return ShapeData{std::move(meshData), std::move(matData), {}, {}};
+        /* Create the mesh */
+        Mesh* mesh = new Mesh{NoCreate};
+        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
+
+        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
         /*  @todo check if we should not ignore the transformation in the Mesh */
         auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
 
-        const aiScene* mesh = meshShape->getMesh();
+        const aiScene* aiMesh = meshShape->getMesh();
         std::string meshPath = Utility::Directory::path(meshShape->getMeshPath());
 
-        PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
-        std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
-        if (!importer)
-            return Containers::NullOpt;
-
-        bool loaded = importer->openState(mesh, meshPath);
+        bool loaded = importer->openState(aiMesh, meshPath);
         if(!loaded || importer->mesh3DCount() < 1)
             return Containers::NullOpt;
 
@@ -145,10 +171,11 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         if(((scale.array() - 1.).abs() > 1e-3).any())
             MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(scale(0), scale(1), scale(2))), meshData->positions(0));
 
-        Containers::Array<Containers::Optional<Trade::ImageData2D>> imgData(importer->textureCount());
-        Containers::Array<Containers::Optional<Trade::TextureData>> texData(importer->textureCount());
+        Containers::Array<Texture2D*> textures(importer->textureCount());
 
         for(UnsignedInt i = 0; i < importer->textureCount(); ++i) {
+            textures[i] = nullptr;
+
             /* Cannot load, leave this element set to NullOpt */
             Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
             if (!textureData || textureData->type() != Trade::TextureData::Type::Texture2D) {
@@ -163,11 +190,73 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                 continue;
             }
 
-            imgData[i] = std::move(imageData);
-            texData[i] = std::move(textureData);
+            auto texture = new Texture2D;
+            texture->setMagnificationFilter(textureData->magnificationFilter())
+                .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
+                .setWrapping(textureData->wrapping().xy())
+                .setStorage(1, TextureFormat::RGB8, imageData->size())
+                .setSubImage(0, {}, *imageData)
+                .generateMipmap();
+
+            textures[i] = texture;
         }
 
-        return ShapeData{std::move(*meshData), std::move(matData), std::move(imgData), std::move(texData)};
+        /* Create the mesh */
+        Mesh* mesh = new Mesh{NoCreate};
+        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::DynamicDraw);
+
+        /* Close any file if opened */
+        importer->close();
+
+        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), std::move(textures)};
+    }
+
+    if(shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
+        /*  @todo check if we should not ignore the transformation in the Mesh */
+        auto meshShape = std::static_pointer_cast<dart::dynamics::SoftMeshShape>(shape);
+
+        /* get aiMesh from SoftBodyNode */
+        const aiMesh* assimpMesh = meshShape->getAssimpMesh();
+        /* Create an aiScene for AssimpImporter to read */
+        /* create the root node */
+        aiNode* rootNode = new aiNode(shapeNode.getName() + "_root");
+        rootNode->mNumMeshes = 1;
+        rootNode->mMeshes = new unsigned int[1];
+        rootNode->mMeshes[0] = 0;
+        aiScene* assimpScene = new aiScene;
+        assimpScene->mRootNode = rootNode;
+        /* add the mesh */
+        assimpScene->mNumMeshes = 1;
+        assimpScene->mMeshes = new aiMesh*[1];
+        /* copy the mesh into temp variable */
+        aiMesh* tmpMesh = new aiMesh;
+        *tmpMesh = *assimpMesh;
+        tmpMesh->mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
+        assimpScene->mMeshes[0] = tmpMesh;
+
+        bool loaded = importer->openState(assimpScene);
+        if(!loaded) {
+            /* delete aiScene if not loaded */
+            delete assimpScene;
+        }
+        if(!loaded || importer->mesh3DCount() < 1)
+            return Containers::NullOpt;
+
+        /* SoftBodyNodes have only one mesh */
+        Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(0);
+        if(!meshData)
+            return Containers::NullOpt;
+
+        /* Create the Magnum Mesh */
+        Mesh* mesh = new Mesh{NoCreate};
+        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::DynamicDraw);
+
+        /* Close any file if opened */
+        importer->close();
+
+        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::SphereShape::getStaticType()) {
@@ -178,7 +267,12 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         Trade::MeshData3D meshData{Primitives::Icosphere::solid(4)};
         MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{r, r, r}), meshData.positions(0));
 
-        return ShapeData{std::move(meshData), std::move(matData), {}, {}};
+        /* Create the mesh */
+        Mesh* mesh = new Mesh{NoCreate};
+        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
+
+        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
     }
 
     Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";

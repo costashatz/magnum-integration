@@ -30,6 +30,7 @@ else()
     set(DARTINTEGRATION_TEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
+find_package(Magnum REQUIRED OpenGLTester)
 find_package(DART CONFIG REQUIRED OPTIONAL_COMPONENTS io-urdf utils-urdf)
 
 # The DART URDF library is only needed for the tests
@@ -42,7 +43,7 @@ endif()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configure.h.cmake
                ${CMAKE_CURRENT_BINARY_DIR}/configure.h)
 
-corrade_add_test(DartIntegrationDartSkeletonTest DartSkeletonTest.cpp LIBRARIES MagnumDartIntegration ${DART_LIBRARIES})
+corrade_add_test(DartIntegrationDartSkeletonTest DartSkeletonTest.cpp LIBRARIES Magnum::OpenGLTester MagnumDartIntegration ${DART_LIBRARIES})
 target_include_directories(DartIntegrationDartSkeletonTest PUBLIC ${DART_INCLUDE_DIRS})
 
 set_target_properties(

@@ -42,16 +42,69 @@ namespace Magnum { namespace DartIntegration {
             obj.second->clearUsed();
 
         _dartWorld->step();
+
         refresh();
 
+        _toRemove = clearUnusedObjects();
+
         return *this;
+    }
+
+    std::vector<std::shared_ptr<Object>> World::clearUnusedObjects() {
+        std::vector<dart::dynamics::Frame*> unusedFrames;
+
+        /* Find unutilized objects */
+        for(auto& object_pair : _dartToMagnum)
+        {
+            auto object = object_pair.second;
+            if(object && !object->used())
+                unusedFrames.push_back(object_pair.first);
+        }
+
+        /* Clear unused Objects */
+        std::vector<std::shared_ptr<Object>> unusedObjects;
+        for(dart::dynamics::Frame* frame : unusedFrames)
+        {
+            auto it = _dartToMagnum.find(frame);
+            unusedObjects.push_back(it->second);
+            /* @todo: Manage removal from scene */
+            _dartToMagnum.erase(it);
+        }
+
+        return unusedObjects;
+    }
+
+    std::vector<std::shared_ptr<Object>> World::getUnusedObjects() {
+        return _toRemove;
     }
 
     std::vector<std::shared_ptr<Object>> World::objects() {
         std::vector<std::shared_ptr<Object>> objs;
         for(auto& obj : _dartToMagnum)
             objs.emplace_back(obj.second);
+
+        return objs;
+    }
+
+    std::vector<std::shared_ptr<Object>> World::shapeObjects() {
+        std::vector<std::shared_ptr<Object>> objs;
+        for(auto& obj : _dartToMagnum)
+            if(obj.second->shapeNode())
+                objs.emplace_back(obj.second);
+
+        return objs;
+    }
+
+    std::vector<std::shared_ptr<Object>> World::bodyObjects() {
+        std::vector<std::shared_ptr<Object>> objs;
+        for(auto& obj : _dartToMagnum)
+            if(obj.second->bodyNode())
+                objs.emplace_back(obj.second);
         
         return objs;
+    }
+
+    std::shared_ptr<Object> World::objectFromDartFrame(dart::dynamics::Frame* frame) {
+        return _dartToMagnum[frame];
     }
 }}

@@ -29,6 +29,7 @@
 
 #include <dart/dynamics/BodyNode.hpp>
 #include <dart/dynamics/ShapeNode.hpp>
+#include <dart/dynamics/SoftMeshShape.hpp>
 
 namespace Magnum { namespace DartIntegration {
 
@@ -47,12 +48,14 @@ bool Object::_convertShapeNode() {
     if(!shapeData)
         return false;
 
-    _shapeData = std::unique_ptr<ShapeData>(new ShapeData{std::move(shapeData->mesh), std::move(shapeData->material), std::move(shapeData->images), std::move(shapeData->textures)});
+    _shapeData = std::unique_ptr<ShapeData>(new ShapeData{shapeData->mesh, shapeData->vertexBuffer, shapeData->indexBuffer, std::move(shapeData->material), std::move(shapeData->textures)});
 
     return true;
 }
 
 Object& Object::update() {
+    if(_node && (!_shapeData || _node->getShape()->getType() == dart::dynamics::SoftMeshShape::getStaticType()))
+        _convertShapeNode();
     _used = true;
     /* Get transform from DART */
     Eigen::Isometry3d trans;

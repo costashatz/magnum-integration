@@ -31,21 +31,23 @@
 #include <dart/dynamics/BoxShape.hpp>
 #include <dart/dynamics/CylinderShape.hpp>
 #include <dart/dynamics/EllipsoidShape.hpp>
+#include <dart/dynamics/FreeJoint.hpp>
+#include <dart/dynamics/MeshShape.hpp>
 #include <dart/dynamics/RevoluteJoint.hpp>
+#include <dart/dynamics/SoftBodyNode.hpp>
 #include <dart/dynamics/Skeleton.hpp>
+#include <dart/dynamics/WeldJoint.hpp>
 #include <dart/simulation/World.hpp>
-#include <Corrade/TestSuite/Tester.h>
 #include <Corrade/Utility/Directory.h>
+#include <Magnum/Mesh.h>
+#include <Magnum/OpenGLTester.h>
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.hpp>
 #include <Magnum/SceneGraph/SceneGraph.h>
-#include <Magnum/Trade/ImageData.h>
-#include <Magnum/Trade/MeshData3D.h>
 #include <Magnum/Trade/PhongMaterialData.h>
-#include <Magnum/Trade/TextureData.h>
 
 #include "Magnum/DartIntegration/ConvertShapeNode.h"
-#include "Magnum/DartIntegration/Skeleton.h"
+#include "Magnum/DartIntegration/World.h"
 #include "Magnum/DartIntegration/Test/configure.h"
 
 #define DART_URDF (MAGNUM_DART_URDF_FOUND > 0 && DART_MAJOR_VERSION >= 6)
@@ -149,28 +151,89 @@ dart::dynamics::BodyNode* addBody(const dart::dynamics::SkeletonPtr& pendulum, d
     return bn;
 }
 
+/* Add a soft body with the specified Joint type to a chain */
+template<class JointType>
+dart::dynamics::BodyNode* addSoftBody(const dart::dynamics::SkeletonPtr& chain, const std::string& name, dart::dynamics::BodyNode* parent = nullptr)
+{
+    constexpr double default_shape_density = 1000; // kg/m^3
+    constexpr double default_shape_height  = 0.1;  // m
+    constexpr double default_shape_width   = 0.03; // m
+    constexpr double default_skin_thickness = 1e-3; // m
+
+    constexpr double default_vertex_stiffness = 1000.0;
+    constexpr double default_edge_stiffness = 1.0;
+    constexpr double default_soft_damping = 5.0;
+
+    /* Set the Joint properties */
+    typename JointType::Properties joint_properties;
+    joint_properties.mName = name+"_joint";
+    if(parent)
+    {
+        /* If the body has a parent, we should position the joint to be in the
+         * middle of the centers of the two bodies */
+        Eigen::Isometry3d tf(Eigen::Isometry3d::Identity());
+        tf.translation() = Eigen::Vector3d(0, 0, default_shape_height / 2.0);
+        joint_properties.mT_ParentBodyToJoint = tf;
+        joint_properties.mT_ChildBodyToJoint = tf.inverse();
+    }
+
+    /* Set the properties of the soft body */
+    dart::dynamics::SoftBodyNode::UniqueProperties soft_properties;
+    /* Make a wide and short box */
+    double width = default_shape_height, height = 2*default_shape_width;
+    Eigen::Vector3d dims(width, width, height);
+
+    double mass = 2*dims[0]*dims[1] + 2*dims[0]*dims[2] + 2*dims[1]*dims[2];
+    mass *= default_shape_density * default_skin_thickness;
+    soft_properties = dart::dynamics::SoftBodyNodeHelper::makeBoxProperties(dims, Eigen::Isometry3d::Identity(), Eigen::Vector3i(4,4,4), mass);
+
+    soft_properties.mKv = default_vertex_stiffness;
+    soft_properties.mKe = default_edge_stiffness;
+    soft_properties.mDampCoeff = default_soft_damping;
+
+    /* Create the Joint and Body pair */
+    dart::dynamics::SoftBodyNode::Properties body_properties(dart::dynamics::BodyNode::AspectProperties(name), soft_properties);
+    dart::dynamics::SoftBodyNode* bn = chain->createJointAndBodyNodePair<JointType, dart::dynamics::SoftBodyNode>(parent, joint_properties, body_properties).second;
+
+    /* Zero out the inertia for the underlying BodyNode */
+    dart::dynamics::Inertia inertia;
+    inertia.setMoment(1e-8*Eigen::Matrix3d::Identity());
+    inertia.setMass(1e-8);
+    bn->setInertia(inertia);
+
+    return bn;
 }
 
-struct DartSkeletonTest: TestSuite::Tester {
+}
+
+struct DartSkeletonTest: Magnum::OpenGLTester {
     explicit DartSkeletonTest();
 
     void test();
+    void test_soft();
     void urdf();
     void texture();
+
+    void bench_simple();
+    void bench_soft();
 };
 
 DartSkeletonTest::DartSkeletonTest() {
     addTests({&DartSkeletonTest::test,
+              &DartSkeletonTest::test_soft,
               #if DART_URDF
               &DartSkeletonTest::urdf,
               &DartSkeletonTest::texture
               #endif
               });
+
+    addBenchmarks({&DartSkeletonTest::bench_simple,
+                   &DartSkeletonTest::bench_soft}, 5);
 }
 
 void DartSkeletonTest::test() {
     /* Create an empty Skeleton with the name "pendulum" */
-    const std::string name = "pendulum";
+    std::string name = "pendulum";
     dart::dynamics::SkeletonPtr pendulum = dart::dynamics::Skeleton::create(name);
 
     /* Add each body to the last BodyNode in the pendulum */
@@ -180,6 +243,12 @@ void DartSkeletonTest::test() {
     bn = addBody(pendulum, bn, "body4");
     bn = addBody(pendulum, bn, "body5");
 
+    /* Set the initial joint positions so that the pendulum
+       starts to swing right away */
+    pendulum->getDof(1)->setPosition(Double(Radd(120.0_deg)));
+    pendulum->getDof(2)->setPosition(Double(Radd(20.0_deg)));
+    pendulum->getDof(3)->setPosition(Double(Radd(-50.0_deg)));
+
     /* Create a world and add the pendulum to the world */
     dart::simulation::WorldPtr world(new dart::simulation::World);
     world->addSkeleton(pendulum);
@@ -187,18 +256,13 @@ void DartSkeletonTest::test() {
     Scene3D scene;
     Object3D* obj = new Object3D{&scene};
 
-    auto skel = std::make_shared<Skeleton>(*obj, pendulum);
+    std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
 
-    /* Set the initial joint positions so that the pendulum
-       starts to swing right away */
-    pendulum->getDof(1)->setPosition(Double(Radd(120.0_deg)));
-    pendulum->getDof(2)->setPosition(Double(Radd(20.0_deg)));
-    pendulum->getDof(3)->setPosition(Double(Radd(-50.0_deg)));
+    for(int i = 0; i < 10; i++)
+        dartWorld->step();
 
-    world->step();
-    skel->updateObjects();
-
-    auto objects = skel->objects();
+    auto objects = dartWorld->objects();
+    auto objTest = dartWorld->objectFromDartFrame(bn->getShapeNodesWith<dart::dynamics::VisualAspect>().back());
 
     Eigen::Isometry3d trans = bn->getShapeNodesWith<dart::dynamics::VisualAspect>().back()->getTransform();
 
@@ -215,7 +279,28 @@ void DartSkeletonTest::test() {
     transformation = Math::Matrix4<Float>::translation(t) * Math::Matrix4<Float>::rotation(theta, u);
 
     CORRADE_VERIFY(objects.size() == 15);
-    CORRADE_VERIFY(objects.back().get().object().absoluteTransformationMatrix() == transformation);
+    CORRADE_COMPARE(objTest->object().absoluteTransformationMatrix(), transformation);
+}
+
+void DartSkeletonTest::test_soft() {
+    /* Create a soft body node */
+    auto soft = dart::dynamics::Skeleton::create("soft");
+    addSoftBody<dart::dynamics::WeldJoint>(soft, "soft box");
+    /* Create a world and add the body to the world */
+    dart::simulation::WorldPtr world(new dart::simulation::World);
+    world->addSkeleton(soft);
+
+    Scene3D scene;
+    Object3D* obj = new Object3D{&scene};
+
+    std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
+
+    for(int i = 0; i < 10; i++)
+        dartWorld->step();
+
+    auto objects = dartWorld->objects();
+    CORRADE_COMPARE(objects.size(), 2);
+    CORRADE_COMPARE(dartWorld->shapeObjects().size(), 1);
 }
 
 #if DART_URDF
@@ -238,27 +323,21 @@ void DartSkeletonTest::urdf() {
     Scene3D scene;
     Object3D* obj = new Object3D{&scene};
 
-    auto skel = std::make_shared<Skeleton>(*obj, tmp_skel);
+    std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
 
-    world->step();
-    skel->updateObjects();
-    std::size_t pts[] = {1524, 1682, 2554, 1514, 2442, 706, 3872};
-
-    std::size_t j = 0;
-    for(Object& dartObj: skel->shapeObjects()) {
-        auto shape = dartObj.shapeNode()->getShape();
-        CORRADE_COMPARE(shape->getType(), "MeshShape");
-        auto mydata = convertShapeNode(dartObj);
-        CORRADE_VERIFY(mydata);
-        CORRADE_COMPARE(mydata->mesh.positions(0).size(), pts[j]);
+    for(auto& dartObj: dartWorld->shapeObjects()) {
+        auto shape = dartObj->shapeNode()->getShape();
+        CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
+        ShapeData& mydata = dartObj->shapeData();
+        CORRADE_VERIFY(mydata.mesh);
+        CORRADE_VERIFY(mydata.vertexBuffer);
+        CORRADE_VERIFY(mydata.indexBuffer);
         {
             CORRADE_EXPECT_FAIL_IF(assimpVersion < 302,
                 "Old versions of Assimp do not load the material correctly");
-            CORRADE_COMPARE(mydata->material.diffuseColor(), (Vector3{0.6f, 0.6f, 0.6f}));
+            CORRADE_COMPARE(mydata.material.diffuseColor(), (Vector3{0.6f, 0.6f, 0.6f}));
         }
-        CORRADE_COMPARE(mydata->textures.size(), 0);
-        CORRADE_COMPARE(mydata->images.size(), 0);
-        ++j;
+        CORRADE_COMPARE(mydata.textures.size(), 0);
     }
 }
 
@@ -284,24 +363,72 @@ void DartSkeletonTest::texture() {
     Scene3D scene;
     Object3D* obj = new Object3D{&scene};
 
-    auto skel = std::make_shared<Skeleton>(*obj, tmp_skel);
+    std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
 
-    world->step();
-    skel->updateObjects();
-
-    for(Object& dartObj: skel->shapeObjects()) {
-        auto shape = dartObj.shapeNode()->getShape();
-        CORRADE_COMPARE(shape->getType(), "MeshShape");
-        auto mydata = convertShapeNode(dartObj);
-        CORRADE_VERIFY(mydata);
-        CORRADE_VERIFY(!mydata->mesh.positions(0).empty());
-        CORRADE_COMPARE(mydata->textures.size(), 1);
-        CORRADE_COMPARE(mydata->images.size(), 1);
-        CORRADE_VERIFY(mydata->textures[0]);
-        CORRADE_VERIFY(mydata->images[0]);
+    for(auto& dartObj: dartWorld->shapeObjects()) {
+        auto shape = dartObj->shapeNode()->getShape();
+        CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
+        ShapeData& mydata = dartObj->shapeData();
+        CORRADE_VERIFY(mydata.mesh);
+        CORRADE_VERIFY(mydata.vertexBuffer);
+        CORRADE_VERIFY(mydata.indexBuffer);
+        CORRADE_COMPARE(mydata.textures.size(), 1);
+        CORRADE_VERIFY(mydata.textures[0]);
     }
 }
 #endif
+
+void DartSkeletonTest::bench_simple() {
+    CORRADE_BENCHMARK(5) {
+        /* Create an empty Skeleton with the name "pendulum" */
+        std::string name = "pendulum";
+        dart::dynamics::SkeletonPtr pendulum = dart::dynamics::Skeleton::create(name);
+
+        /* Add each body to the last BodyNode in the pendulum */
+        dart::dynamics::BodyNode* bn = makeRootBody(pendulum, "body1");
+        bn = addBody(pendulum, bn, "body2");
+        bn = addBody(pendulum, bn, "body3");
+        bn = addBody(pendulum, bn, "body4");
+        bn = addBody(pendulum, bn, "body5");
+
+        /* Set the initial joint positions so that the pendulum
+        starts to swing right away */
+        pendulum->getDof(1)->setPosition(Double(Radd(120.0_deg)));
+        pendulum->getDof(2)->setPosition(Double(Radd(20.0_deg)));
+        pendulum->getDof(3)->setPosition(Double(Radd(-50.0_deg)));
+
+        /* Create a world and add the pendulum to the world */
+        dart::simulation::WorldPtr world(new dart::simulation::World);
+        world->addSkeleton(pendulum);
+
+        Scene3D scene;
+        Object3D* obj = new Object3D{&scene};
+
+        std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
+
+        for(int i = 0; i < 1000; i++)
+            dartWorld->step();
+        }
+}
+
+void DartSkeletonTest::bench_soft() {
+    CORRADE_BENCHMARK(5) {
+        /* Create a soft body node */
+        auto soft = dart::dynamics::Skeleton::create("soft");
+        addSoftBody<dart::dynamics::FreeJoint>(soft, "soft box");
+        /* Create a world and add the body to the world */
+        dart::simulation::WorldPtr world(new dart::simulation::World);
+        world->addSkeleton(soft);
+
+        Scene3D scene;
+        Object3D* obj = new Object3D{&scene};
+
+        std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
+
+        for(int i = 0; i < 1000; i++)
+            dartWorld->step();
+    }
+}
 
 }}}
 

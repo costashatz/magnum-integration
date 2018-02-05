@@ -30,6 +30,8 @@
  * @brief Class @ref Magnum::DartIntegration::Object
  */
 
+#include <memory>
+
 #include <Magnum/SceneGraph/AbstractFeature.h>
 #include <Magnum/SceneGraph/AbstractTranslationRotation3D.h>
 
@@ -41,6 +43,7 @@ namespace dart { namespace dynamics {
 }}
 
 namespace Magnum { namespace DartIntegration {
+    struct ShapeData;
 
 /**
 @brief DART Physics BodyNode or ShapeNode
@@ -78,7 +81,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
          * @param node      DART `ShapeNode` to connect with
          */
         template<class T> Object(T& object, dart::dynamics::ShapeNode* node = nullptr): Object{object, object, node, nullptr} {
-            if(_node) update();
+            if(_node) _convertShapeNode();
         }
 
         /**
@@ -86,26 +89,19 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
          * @param object    Object this @ref Object belongs to
          * @param body      DART `BodyNode` to connect with
          */
-        template<class T> Object(T& object, dart::dynamics::BodyNode* body = nullptr): Object{object, object, nullptr, body} {
-            if(_body) update();
-        }
-
-        /**
-         * @brief Connect with `ShapeNode`
-         *
-         * This will disconnect from any connected `BodyNode`.
-         */
-        Object& setShapeNode(dart::dynamics::ShapeNode* node);
-
-        /**
-         * @brief Connect with `BodyNode`
-         *
-         * This will disconnect from any connected `ShapeNode`.
-         */
-        Object& setBodyNode(dart::dynamics::BodyNode* body);
+        template<class T> Object(T& object, dart::dynamics::BodyNode* body = nullptr): Object{object, object, nullptr, body} {}
 
         /** @brief Get transformation from DART */
         Object& update();
+
+        /** @brief Get is Object was updated */
+        bool used();
+
+        /** @brief Clear usage flag (i.e., set it to false) */
+        Object& clearUsed();
+
+        /** @brief Get ShapeData */
+        std::reference_wrapper<ShapeData> shapeData();
 
         /** @brief Underlying DART `ShapeNode` */
         dart::dynamics::ShapeNode* shapeNode() { return _node; }
@@ -115,10 +111,13 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
 
     private:
         explicit Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body);
+        bool _convertShapeNode();
 
         SceneGraph::AbstractBasicTranslationRotation3D<Float>& _transformation;
         dart::dynamics::ShapeNode* _node;
         dart::dynamics::BodyNode* _body;
+        std::unique_ptr<ShapeData> _shapeData;
+        bool _used = false;
 };
 
 }}

@@ -24,6 +24,7 @@
     DEALINGS IN THE SOFTWARE.
 */
 
+#include "ConvertShapeNode.h"
 #include "Object.h"
 
 #include <dart/dynamics/BodyNode.hpp>
@@ -33,27 +34,27 @@ namespace Magnum { namespace DartIntegration {
 
 Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body} {}
 
-Object& Object::setShapeNode(dart::dynamics::ShapeNode* node) {
-    _node = node;
-    _body = nullptr;
+bool Object::_convertShapeNode() {
+    /* This is not a valid object */
+    if(!_node && !_body)
+        return false;
+    /* This object has no shape */
+    if(!_node)
+        return true;
 
-    if(_node) update();
+    /* Convert the Shape */
+    auto shapeData = convertShapeNode(*_node);
+    if(!shapeData)
+        return false;
 
-    return *this;
-}
+    _shapeData = std::unique_ptr<ShapeData>(new ShapeData{std::move(shapeData->mesh), std::move(shapeData->material), std::move(shapeData->images), std::move(shapeData->textures)});
 
-Object& Object::setBodyNode(dart::dynamics::BodyNode* body) {
-    _node = nullptr;
-    _body = body;
-
-    if(_body) update();
-
-    return *this;
+    return true;
 }
 
 Object& Object::update() {
+    _used = true;
     /* Get transform from DART */
-    /** @todo Check if getting translation like this is correct */
     Eigen::Isometry3d trans;
     if(!_node)
         trans = _body->getRelativeTransform();
@@ -75,6 +76,20 @@ Object& Object::update() {
         .translate(t);
 
     return *this;
+}
+
+bool Object::used() {
+    return _used;
+}
+
+Object& Object::clearUsed() {
+    _used = false;
+
+    return *this;
+}
+
+std::reference_wrapper<ShapeData> Object::shapeData() {
+    return std::ref(*_shapeData);
 }
 
 }}

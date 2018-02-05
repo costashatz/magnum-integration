@@ -24,39 +24,34 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-#include "Skeleton.h"
+#include "World.h"
 
 namespace Magnum { namespace DartIntegration {
+    World& World::refresh() {
+        if (!_dartWorld)
+            return *this;
+        for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
+            _parseSkeleton(_scene, *_dartWorld->getSkeleton(i));
+        }
 
-Skeleton& Skeleton::updateObjects() {
-    for(auto& obj: _objects)
-        obj->update();
+        return *this;
+    }
 
-    return *this;
-}
+    World& World::step() {
+        for(auto& obj : _dartToMagnum)
+            obj.second->clearUsed();
 
-std::vector<std::reference_wrapper<Object>> Skeleton::objects() {
-    std::vector<std::reference_wrapper<Object>> objects;
-    for(auto& obj: _objects)
-        objects.emplace_back(std::ref(*obj));
+        _dartWorld->step();
+        refresh();
 
-    return objects;
-}
+        return *this;
+    }
 
-std::vector<std::reference_wrapper<Object>> Skeleton::shapeObjects() {
-    std::vector<std::reference_wrapper<Object>> objects;
-    for(auto& obj: _objects) if(obj->shapeNode())
-        objects.emplace_back(std::ref(*obj));
-
-    return objects;
-}
-
-std::vector<std::reference_wrapper<Object>> Skeleton::bodyObjects() {
-    std::vector<std::reference_wrapper<Object>> objects;
-    for(auto& obj: _objects) if(obj->bodyNode())
-        objects.emplace_back(std::ref(*obj));
-
-    return objects;
-}
-
+    std::vector<std::shared_ptr<Object>> World::objects() {
+        std::vector<std::shared_ptr<Object>> objs;
+        for(auto& obj : _dartToMagnum)
+            objs.emplace_back(obj.second);
+        
+        return objs;
+    }
 }}

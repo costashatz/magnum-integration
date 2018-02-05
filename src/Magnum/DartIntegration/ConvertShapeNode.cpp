@@ -65,6 +65,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
     /* Get material information -- we ignore the alpha value
        Note that if this is a MeshShape we will ignore this material */
     Eigen::Vector4d col = shapeNode.getVisualAspect()->getRGBA();
+    /* @to-do: Create Trade Material Data that includes alpha channel */
 
     /* default shininess to 80.f */
     Trade::PhongMaterialData matData{Trade::PhongMaterialData::Flags{}, 80.f};
@@ -280,6 +281,8 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
 }
 
 Containers::Optional<ShapeData> convertShapeNode(Object& object) {
+    if(!object.shapeNode())
+        return Containers::NullOpt;
     return convertShapeNode(*object.shapeNode());
 }
 

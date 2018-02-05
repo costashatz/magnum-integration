@@ -416,9 +416,18 @@ void DartSkeletonTest::bench_soft() {
         /* Create a soft body node */
         auto soft = dart::dynamics::Skeleton::create("soft");
         addSoftBody<dart::dynamics::FreeJoint>(soft, "soft box");
+
+        /* Create a second soft body node in different location */
+        Eigen::Vector6d positions(Eigen::Vector6d::Zero());
+        positions(5) = 0.7;
+        positions(4) = 1.;
+        auto soft2 = dart::dynamics::Skeleton::create("soft2");
+        addSoftBody<dart::dynamics::FreeJoint>(soft2, "soft box 2");
+        soft2->getJoint(0)->setPositions(positions);
         /* Create a world and add the body to the world */
         dart::simulation::WorldPtr world(new dart::simulation::World);
         world->addSkeleton(soft);
+        world->addSkeleton(soft2);
 
         Scene3D scene;
         Object3D* obj = new Object3D{&scene};

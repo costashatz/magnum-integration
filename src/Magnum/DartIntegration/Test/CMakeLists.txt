@@ -43,9 +43,9 @@ endif()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configure.h.cmake
                ${CMAKE_CURRENT_BINARY_DIR}/configure.h)
 
-corrade_add_test(DartIntegrationDartSkeletonTest DartSkeletonTest.cpp LIBRARIES Magnum::OpenGLTester MagnumDartIntegration ${DART_LIBRARIES})
-target_include_directories(DartIntegrationDartSkeletonTest PUBLIC ${DART_INCLUDE_DIRS})
+corrade_add_test(DartIntegrationDartWorldTest DartWorldTest.cpp LIBRARIES Magnum::OpenGLTester MagnumDartIntegration ${DART_LIBRARIES})
+target_include_directories(DartIntegrationDartWorldTest PUBLIC ${DART_INCLUDE_DIRS})
 
 set_target_properties(
-    DartIntegrationDartSkeletonTest
+    DartIntegrationDartWorldTest
     PROPERTIES FOLDER "Magnum/DartIntegration/Test")

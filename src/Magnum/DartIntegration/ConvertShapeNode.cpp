@@ -42,6 +42,8 @@
 #include <Magnum/Texture.h>
 #include <Magnum/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
+#include <Magnum/MeshTools/CombineIndexedArrays.h>
+#include <Magnum/MeshTools/GenerateFlatNormals.h>
 #include <Magnum/MeshTools/Transform.h>
 #include <Magnum/Primitives/Capsule.h>
 #include <Magnum/Primitives/Cube.h>
@@ -57,8 +59,6 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
     /* We only need to load AssimpImporter once */
     static PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
     static std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
-    if (!importer)
-        return Containers::NullOpt;
 
     dart::dynamics::ShapePtr shape = shapeNode.getShape();
 
@@ -88,7 +88,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
 
-        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
+        return ShapeData{mesh, vertexBuffer.release(), indexBuffer.release(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::CapsuleShape::getStaticType()) {
@@ -106,7 +106,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
 
-        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
+        return ShapeData{mesh, vertexBuffer.release(), indexBuffer.release(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::CylinderShape::getStaticType()) {
@@ -124,7 +124,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
 
-        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
+        return ShapeData{mesh, vertexBuffer.release(), indexBuffer.release(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::EllipsoidShape::getStaticType()) {
@@ -140,10 +140,12 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
 
-        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
+        return ShapeData{mesh, vertexBuffer.release(), indexBuffer.release(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
+        if (!importer)
+            return Containers::NullOpt;
         /*  @todo check if we should not ignore the transformation in the Mesh */
         auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
 
@@ -210,11 +212,12 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         /* Close any file if opened */
         importer->close();
 
-        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), std::move(textures)};
+        return ShapeData{mesh, vertexBuffer.release(), indexBuffer.release(), std::move(matData), std::move(textures)};
     }
 
     if(shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
-        /*  @todo check if we should not ignore the transformation in the Mesh */
+        if (!importer)
+            return Containers::NullOpt;
         auto meshShape = std::static_pointer_cast<dart::dynamics::SoftMeshShape>(shape);
 
         /* get aiMesh from SoftBodyNode */
@@ -249,6 +252,20 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         if(!meshData)
             return Containers::NullOpt;
 
+        /* Generate normals
+         * there seems to be a small issue */
+        std::vector<UnsignedInt> normalIndices;
+        std::vector<Vector3> normals;
+        std::tie(normalIndices, normals) = MeshTools::generateFlatNormals(meshData->indices(), meshData->positions(0));
+
+        std::vector<UnsignedInt> indices = MeshTools::combineIndexedArrays(
+            std::make_pair(std::cref(meshData->indices()), std::ref(meshData->positions(0))),
+            std::make_pair(std::cref(normalIndices), std::ref(normals))
+        );
+
+        meshData->indices() = indices;
+        meshData->normals(0) = normals;
+
         /* Create the Magnum Mesh */
         Mesh* mesh = new Mesh{NoCreate};
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
@@ -257,7 +274,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         /* Close any file if opened */
         importer->close();
 
-        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
+        return ShapeData{mesh, vertexBuffer.release(), indexBuffer.release(), std::move(matData), {}};
     }
 
     if(shape->getType() == dart::dynamics::SphereShape::getStaticType()) {
@@ -273,7 +290,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
 
-        return ShapeData{mesh, vertexBuffer.get(), indexBuffer.get(), std::move(matData), {}};
+        return ShapeData{mesh, vertexBuffer.release(), indexBuffer.release(), std::move(matData), {}};
     }
 
     Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";

@@ -30,27 +30,24 @@ namespace Magnum { namespace DartIntegration {
     World& World::refresh() {
         if (!_dartWorld)
             return *this;
+        for(auto& obj : _dartToMagnum)
+            obj.second->clearUsed();
+
         for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
             _parseSkeleton(_scene, *_dartWorld->getSkeleton(i));
         }
+
+        clearUnusedObjects();
 
         return *this;
     }
 
     World& World::step() {
-        for(auto& obj : _dartToMagnum)
-            obj.second->clearUsed();
-
         _dartWorld->step();
-
-        refresh();
-
-        _toRemove = clearUnusedObjects();
-
         return *this;
     }
 
-    std::vector<std::shared_ptr<Object>> World::clearUnusedObjects() {
+    World& World::clearUnusedObjects() {
         std::vector<dart::dynamics::Frame*> unusedFrames;
 
         /* Find unutilized objects */
@@ -62,19 +59,19 @@ namespace Magnum { namespace DartIntegration {
         }
 
         /* Clear unused Objects */
-        std::vector<std::shared_ptr<Object>> unusedObjects;
+        _toRemove.clear();
         for(dart::dynamics::Frame* frame : unusedFrames)
         {
             auto it = _dartToMagnum.find(frame);
-            unusedObjects.push_back(it->second);
+            _toRemove.push_back(it->second);
             /* @todo: Manage removal from scene */
             _dartToMagnum.erase(it);
         }
 
-        return unusedObjects;
+        return *this;
     }
 
-    std::vector<std::shared_ptr<Object>> World::getUnusedObjects() {
+    std::vector<std::shared_ptr<Object>> World::unusedObjects() {
         return _toRemove;
     }
 
@@ -95,6 +92,17 @@ namespace Magnum { namespace DartIntegration {
         return objs;
     }
 
+    std::vector<std::shared_ptr<Object>> World::updatedShapeObjects() {
+        std::vector<std::shared_ptr<Object>> objs;
+        objs.insert(objs.end(), _updatedShapeObjects.begin(), _updatedShapeObjects.end());
+        return objs;
+    }
+
+    World& World::clearUpdatedShapeObjects() {
+        _updatedShapeObjects.clear();
+        return *this;
+    }
+
     std::vector<std::shared_ptr<Object>> World::bodyObjects() {
         std::vector<std::shared_ptr<Object>> objs;
         for(auto& obj : _dartToMagnum)
@@ -106,5 +114,9 @@ namespace Magnum { namespace DartIntegration {
 
     std::shared_ptr<Object> World::objectFromDartFrame(dart::dynamics::Frame* frame) {
         return _dartToMagnum[frame];
+    }
+
+    std::shared_ptr<dart::simulation::World> World::world() {
+        return _dartWorld;
     }
 }}

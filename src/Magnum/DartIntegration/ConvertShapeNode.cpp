@@ -32,6 +32,7 @@
 #include <dart/dynamics/EllipsoidShape.hpp>
 #include <dart/dynamics/MeshShape.hpp>
 #include <dart/dynamics/ShapeNode.hpp>
+#include <dart/dynamics/SoftBodyNode.hpp>
 #include <dart/dynamics/SoftMeshShape.hpp>
 #include <dart/dynamics/SphereShape.hpp>
 #include <Corrade/PluginManager/Manager.h>
@@ -42,8 +43,6 @@
 #include <Magnum/Texture.h>
 #include <Magnum/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
-#include <Magnum/MeshTools/CombineIndexedArrays.h>
-#include <Magnum/MeshTools/GenerateFlatNormals.h>
 #include <Magnum/MeshTools/Transform.h>
 #include <Magnum/Primitives/Capsule.h>
 #include <Magnum/Primitives/Cube.h>
@@ -216,60 +215,35 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
     }
 
     if(shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
-        if (!importer)
-            return Containers::NullOpt;
+        /* For now soft meshes contain no normals and should be drawn without face culling */
+        /* @todo: add proper normals */
         auto meshShape = std::static_pointer_cast<dart::dynamics::SoftMeshShape>(shape);
 
-        /* get aiMesh from SoftBodyNode */
-        const aiMesh* assimpMesh = meshShape->getAssimpMesh();
-        /* Create an aiScene for AssimpImporter to read */
-        /* create the root node */
-        aiNode* rootNode = new aiNode(shapeNode.getName() + "_root");
-        rootNode->mNumMeshes = 1;
-        rootNode->mMeshes = new unsigned int[1];
-        rootNode->mMeshes[0] = 0;
-        aiScene* assimpScene = new aiScene;
-        assimpScene->mRootNode = rootNode;
-        /* add the mesh */
-        assimpScene->mNumMeshes = 1;
-        assimpScene->mMeshes = new aiMesh*[1];
-        /* copy the mesh into temp variable */
-        aiMesh* tmpMesh = new aiMesh;
-        *tmpMesh = *assimpMesh;
-        tmpMesh->mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
-        assimpScene->mMeshes[0] = tmpMesh;
+        const dart::dynamics::SoftBodyNode* bn = meshShape->getSoftBodyNode();
 
-        bool loaded = importer->openState(assimpScene);
-        if(!loaded) {
-            /* delete aiScene if not loaded */
-            delete assimpScene;
+        std::vector<std::vector<Vector3>> positions;
+        positions.push_back(std::vector<Vector3>());
+        std::vector<UnsignedInt> indices;
+
+        for(UnsignedInt i=0; i < bn->getNumPointMasses(); ++i)
+        {
+            const Eigen::Vector3d& pos = bn->getPointMass(i)->getLocalPosition();
+            positions[0].push_back(Vector3(pos(0), pos(1), pos(2)));
         }
-        if(!loaded || importer->mesh3DCount() < 1)
-            return Containers::NullOpt;
 
-        /* SoftBodyNodes have only one mesh */
-        Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(0);
-        if(!meshData)
-            return Containers::NullOpt;
+        for(UnsignedInt i=0; i < bn->getNumFaces(); ++i)
+        {
+            const Eigen::Vector3i& F = bn->getFace(i);
+            for(UnsignedInt j=0; j<3; ++j)
+                indices.push_back(F[j]);
+        }
 
-        /* Generate normals
-         * there seems to be a small issue */
-        std::vector<UnsignedInt> normalIndices;
-        std::vector<Vector3> normals;
-        std::tie(normalIndices, normals) = MeshTools::generateFlatNormals(meshData->indices(), meshData->positions(0));
-
-        std::vector<UnsignedInt> indices = MeshTools::combineIndexedArrays(
-            std::make_pair(std::cref(meshData->indices()), std::ref(meshData->positions(0))),
-            std::make_pair(std::cref(normalIndices), std::ref(normals))
-        );
-
-        meshData->indices() = indices;
-        meshData->normals(0) = normals;
+        Trade::MeshData3D meshData{MeshPrimitive::Triangles, indices, positions, std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
 
         /* Create the Magnum Mesh */
         Mesh* mesh = new Mesh{NoCreate};
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::DynamicDraw);
+        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::DynamicDraw);
 
         /* Close any file if opened */
         importer->close();

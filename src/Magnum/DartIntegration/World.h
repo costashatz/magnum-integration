@@ -32,6 +32,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <dart/dynamics/BodyNode.hpp>
 #include <dart/dynamics/ShapeNode.hpp>
@@ -67,13 +68,17 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
 
         World& refresh();
         World& step();
-        std::vector<std::shared_ptr<Object>> clearUnusedObjects();
-        std::vector<std::shared_ptr<Object>> getUnusedObjects();
+        World& clearUnusedObjects();
+        std::vector<std::shared_ptr<Object>> unusedObjects();
 
         std::vector<std::shared_ptr<Object>> objects();
         std::vector<std::shared_ptr<Object>> shapeObjects();
+        std::vector<std::shared_ptr<Object>> updatedShapeObjects();
+        World& clearUpdatedShapeObjects();
         std::vector<std::shared_ptr<Object>> bodyObjects();
         std::shared_ptr<Object> objectFromDartFrame(dart::dynamics::Frame* frame);
+
+        std::shared_ptr<dart::simulation::World> world();
 
     private:
         SceneGraph::AbstractBasicObject3D<Float>*(*_objectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent);
@@ -87,6 +92,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         std::shared_ptr<dart::simulation::World> _dartWorld;
         std::unordered_map<dart::dynamics::Frame*, std::shared_ptr<Object>> _dartToMagnum;
         std::vector<std::shared_ptr<Object>> _toRemove;
+        std::unordered_set<std::shared_ptr<Object>> _updatedShapeObjects;
 };
 
 template <class T> void World::_parseSkeleton(T& parent, dart::dynamics::Skeleton& skel){
@@ -99,7 +105,7 @@ template <class T> void World::_parseBodyNodeRecursive(T& parent, dart::dynamics
     /** parse the BodyNode
      * we care only about visuals
      */
-    auto visualShapes = bn.getShapeNodesWith<dart::dynamics::VisualAspect>();
+    auto& visualShapes = bn.getShapeNodesWith<dart::dynamics::VisualAspect>();
 
     /* create an object of the BodyNode to keep track of transformations */
     SceneGraph::AbstractBasicObject3D<Float>* object = nullptr;
@@ -117,6 +123,7 @@ template <class T> void World::_parseBodyNodeRecursive(T& parent, dart::dynamics
             /* create objects for the ShapeNodes to keep track of inner transformations */
             auto shapeObj = _objectCreator(*object);
             it.first->second = _dartShapeObjectCreator(*shapeObj, shape); //std::make_shared<Object>(*shapeObj, shape);
+            _updatedShapeObjects.insert(it.first->second);
         }
         it.first->second->update();
     }

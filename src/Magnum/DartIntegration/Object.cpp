@@ -33,7 +33,7 @@
 
 namespace Magnum { namespace DartIntegration {
 
-Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body} {}
+Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _used(false) {}
 
 bool Object::_convertShapeNode() {
     /* This is not a valid object */
@@ -58,20 +58,28 @@ Object& Object::update() {
         _convertShapeNode();
     _used = true;
     /* Get transform from DART */
-    Eigen::Isometry3d trans;
+    const Eigen::Isometry3d* trans;
     if(!_node)
-        trans = _body->getRelativeTransform();
+        trans = &_body->getRelativeTransform();
     else
-        trans = _node->getRelativeTransform();
+        trans = &_node->getRelativeTransform();
 
-    Eigen::AngleAxisd R = Eigen::AngleAxisd(trans.linear());
-    Eigen::Vector3d axis = R.axis();
-    Eigen::Vector3d T = trans.translation();
+    Eigen::Quaterniond quat(trans->linear());
+    Eigen::Vector3d axis(quat.x(), quat.y(), quat.z());
+    double angle = 2.*std::acos(quat.w());
+    if(std::abs(angle)>1e-5) {
+        axis = axis.array() / std::sqrt(1-quat.w()*quat.w());
+        axis.normalize();
+    }
+    else
+        axis(0) = 1.;
+
+    Eigen::Vector3d T = trans->translation();
 
     /* Convert it to axis-angle representation */
     Math::Vector3<Float> t(T[0], T[1], T[2]);
     Math::Vector3<Float> u(axis(0), axis(1), axis(2));
-    Rad theta(R.angle());
+    Rad theta(angle);
 
     /* Pass it to Magnum */
     _transformation.resetTransformation()

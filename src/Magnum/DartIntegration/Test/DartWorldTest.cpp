@@ -52,7 +52,7 @@
 
 #define DART_URDF (MAGNUM_DART_URDF_FOUND > 0 && DART_MAJOR_VERSION >= 6)
 #if DART_URDF
-    #if DART_MINOR_VERSION < 4
+    #if DART_MAJOR_VERSION == 6
         #include <dart/utils/urdf/urdf.hpp>
     #else
         #include <dart/io/urdf/urdf.hpp>
@@ -260,6 +260,7 @@ void DartSkeletonTest::test() {
 
     for(int i = 0; i < 10; i++)
         dartWorld->step();
+    dartWorld->refresh();
 
     auto objects = dartWorld->objects();
     auto objTest = dartWorld->objectFromDartFrame(bn->getShapeNodesWith<dart::dynamics::VisualAspect>().back());
@@ -297,6 +298,7 @@ void DartSkeletonTest::test_soft() {
 
     for(int i = 0; i < 10; i++)
         dartWorld->step();
+    dartWorld->refresh();
 
     auto objects = dartWorld->objects();
     CORRADE_COMPARE(objects.size(), 2);
@@ -305,7 +307,7 @@ void DartSkeletonTest::test_soft() {
 
 #if DART_URDF
 void DartSkeletonTest::urdf() {
-    #if DART_MINOR_VERSION < 4
+    #if DART_MAJOR_VERSION == 6
     dart::utils::DartLoader loader;
     #else
     dart::io::DartLoader loader;
@@ -347,7 +349,7 @@ void DartSkeletonTest::texture() {
     if(assimpVersion < 302)
         CORRADE_SKIP("Current version of Assimp would not work on this test.");
 
-    #if DART_MINOR_VERSION < 4
+    #if DART_MAJOR_VERSION == 6
     dart::utils::DartLoader loader;
     #else
     dart::io::DartLoader loader;
@@ -379,36 +381,41 @@ void DartSkeletonTest::texture() {
 #endif
 
 void DartSkeletonTest::bench_simple() {
+    /* Create an empty Skeleton with the name "pendulum" */
+    std::string name = "pendulum";
+    dart::dynamics::SkeletonPtr pendulum = dart::dynamics::Skeleton::create(name);
+
+    /* Add each body to the last BodyNode in the pendulum */
+    dart::dynamics::BodyNode* bn = makeRootBody(pendulum, "body1");
+    bn = addBody(pendulum, bn, "body2");
+    bn = addBody(pendulum, bn, "body3");
+    bn = addBody(pendulum, bn, "body4");
+    bn = addBody(pendulum, bn, "body5");
+
+    /* Set the initial joint positions so that the pendulum
+    starts to swing right away */
+    pendulum->getDof(1)->setPosition(Double(Radd(120.0_deg)));
+    pendulum->getDof(2)->setPosition(Double(Radd(20.0_deg)));
+    pendulum->getDof(3)->setPosition(Double(Radd(-50.0_deg)));
+
+    /* Create a world and add the pendulum to the world */
+    dart::simulation::WorldPtr world(new dart::simulation::World);
+    world->addSkeleton(pendulum);
+
+    Scene3D scene;
+    Object3D* obj = new Object3D{&scene};
+
+    std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
     CORRADE_BENCHMARK(5) {
-        /* Create an empty Skeleton with the name "pendulum" */
-        std::string name = "pendulum";
-        dart::dynamics::SkeletonPtr pendulum = dart::dynamics::Skeleton::create(name);
-
-        /* Add each body to the last BodyNode in the pendulum */
-        dart::dynamics::BodyNode* bn = makeRootBody(pendulum, "body1");
-        bn = addBody(pendulum, bn, "body2");
-        bn = addBody(pendulum, bn, "body3");
-        bn = addBody(pendulum, bn, "body4");
-        bn = addBody(pendulum, bn, "body5");
-
-        /* Set the initial joint positions so that the pendulum
-        starts to swing right away */
-        pendulum->getDof(1)->setPosition(Double(Radd(120.0_deg)));
-        pendulum->getDof(2)->setPosition(Double(Radd(20.0_deg)));
-        pendulum->getDof(3)->setPosition(Double(Radd(-50.0_deg)));
-
-        /* Create a world and add the pendulum to the world */
-        dart::simulation::WorldPtr world(new dart::simulation::World);
-        world->addSkeleton(pendulum);
-
-        Scene3D scene;
-        Object3D* obj = new Object3D{&scene};
-
-        std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
-
-        for(int i = 0; i < 1000; i++)
+        for(int i = 0; i < 1000; i++) {
             dartWorld->step();
+            /* refresh graphics at 60Hz */
+            if(i%15 == 0) {
+                dartWorld->refresh();
+                dartWorld->clearUpdatedShapeObjects();
+            }
         }
+    }
 }
 
 void DartSkeletonTest::bench_soft() {
@@ -434,8 +441,14 @@ void DartSkeletonTest::bench_soft() {
 
         std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
 
-        for(int i = 0; i < 1000; i++)
+        for(int i = 0; i < 1000; i++) {
             dartWorld->step();
+            /* refresh graphics at 60Hz */
+            if(i%15 == 0) {
+                dartWorld->refresh();
+                dartWorld->clearUpdatedShapeObjects();
+            }
+        }
     }
 }
 

@@ -115,7 +115,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         dart::dynamics::ShapeNode* _node;
         dart::dynamics::BodyNode* _body;
         std::unique_ptr<ShapeData> _shapeData;
-        bool _used = false;
+        bool _used;
 };
 
 }}

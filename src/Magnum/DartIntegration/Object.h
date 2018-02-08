@@ -27,13 +27,16 @@
 */
 
 /** @file
- * @brief Class @ref Magnum::DartIntegration::Object
+ * @brief Class @ref Magnum::DartIntegration::Object, Class @ref Magnum::DartIntegration::ShapeData
  */
 
 #include <memory>
 
+#include <Corrade/Containers/Array.h>
+
 #include <Magnum/SceneGraph/AbstractFeature.h>
 #include <Magnum/SceneGraph/AbstractTranslationRotation3D.h>
+#include <Magnum/Trade/PhongMaterialData.h>
 
 #include "Magnum/DartIntegration/visibility.h"
 
@@ -42,8 +45,35 @@ namespace dart { namespace dynamics {
     class ShapeNode;
 }}
 
-namespace Magnum { namespace DartIntegration {
-    struct ShapeData;
+namespace Magnum {
+
+class Mesh;
+class Buffer;
+template<UnsignedInt dimensions> class Texture;
+
+namespace DartIntegration {
+
+/**
+@brief Shape data
+
+@see @ref Object::_convertShapeNode()
+*/
+struct ShapeData {
+    /** @brief Mesh */
+    Mesh* mesh;
+
+    /** @brief vertex Buffer */
+    Buffer* vertexBuffer;
+
+    /** @brief index Buffer */
+    Buffer* indexBuffer;
+
+    /** @brief Material data */
+    Trade::PhongMaterialData material;
+
+    /** @brief Textures */
+    Containers::Array<Texture<2>*> textures;
+};
 
 /**
 @brief DART Physics BodyNode or ShapeNode
@@ -109,6 +139,28 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
 
     private:
         explicit Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body);
+
+        /**
+        @brief Convert `ShapeNode` to mesh and material data
+
+        Returns @ref Corrade::Containers::NullOpt if the shape of given `ShapeNode` is
+        not supported. The following DART shapes are supported:
+
+        -   `BoxShape`
+        -   `CapsuleShape`
+        -   `CylinderShape`
+        -   `EllipsoidShape`
+        -   `MeshShape`
+        -   `SoftMeshShape`
+        -   `SphereShape`
+
+        The following DART shapes are not yet supported:
+
+        -   `ConeShape`
+        -   `LineSegmentShape`
+        -   `MultiSphereConvexHullShape`
+        -   `PlaneShape` (this is an infinite plane with normal)
+        */
         bool _convertShapeNode();
 
         SceneGraph::AbstractBasicTranslationRotation3D<Float>& _transformation;

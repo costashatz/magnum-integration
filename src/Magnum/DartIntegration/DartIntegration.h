@@ -34,7 +34,7 @@ namespace Magnum { namespace DartIntegration {
 
 #ifndef DOXYGEN_GENERATING_OUTPUT
 class Object;
-class Skeleton;
+class World;
 #endif
 
 }}

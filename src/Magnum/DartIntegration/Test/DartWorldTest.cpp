@@ -46,7 +46,6 @@
 #include <Magnum/SceneGraph/SceneGraph.h>
 #include <Magnum/Trade/PhongMaterialData.h>
 
-#include "Magnum/DartIntegration/ConvertShapeNode.h"
 #include "Magnum/DartIntegration/World.h"
 #include "Magnum/DartIntegration/Test/configure.h"
 

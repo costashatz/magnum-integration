@@ -60,6 +60,7 @@ namespace DartIntegration {
 */
 struct ShapeData {
     /** @brief Mesh */
+    /* @todo: support multiple meshes */
     Mesh* mesh;
 
     /** @brief vertex Buffer */
@@ -69,6 +70,7 @@ struct ShapeData {
     Buffer* indexBuffer;
 
     /** @brief Material data */
+    /* @todo: support multiple materials */
     Trade::PhongMaterialData material;
 
     /** @brief Textures */

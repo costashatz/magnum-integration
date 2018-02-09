@@ -66,26 +66,57 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
             refresh();
         }
 
+        /** @brief Refresh/regenerate meshes for all bodies in DART world */
         World& refresh();
+
+        /** @brief Do a DART world step */
         World& step();
+
+        /** @brief Cleared all objects that were not updated during the last refresh call */
         World& clearUnusedObjects();
+
+        /** @brief Get unused objects
+         * Note: that this list will be cleared once a new refresh call is made
+         */
         std::vector<std::shared_ptr<Object>> unusedObjects();
 
+        /** @brief Get all @ref Objects */
         std::vector<std::shared_ptr<Object>> objects();
+
+        /** @brief Get all @ref Objects that have shapes */
         std::vector<std::shared_ptr<Object>> shapeObjects();
+
+        /** @brief Get all @ref Objects that have updated shapes */
         std::vector<std::shared_ptr<Object>> updatedShapeObjects();
+
+        /** @brief Clear list of updated shape @ref Objects */
         World& clearUpdatedShapeObjects();
+
+        /** @brief Get all @ref Objects that do not have shapes */
         std::vector<std::shared_ptr<Object>> bodyObjects();
+
+        /** @brief Helper function to get @ref Object from a DART Frame/BodyNode/ShapeNode */
         std::shared_ptr<Object> objectFromDartFrame(dart::dynamics::Frame* frame);
 
+        /** @brief Get DART world object
+         * for making DART specific changes/updates
+         */
         std::shared_ptr<dart::simulation::World> world();
 
     private:
+        /** @brief Function to create new @ref SceneGraph::AbstractBasicObject3D of correct type */
         SceneGraph::AbstractBasicObject3D<Float>*(*_objectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent);
+
+        /** @brief Function to create new @ref Object without shape with correct parent type */
         std::shared_ptr<Object>(*_dartObjectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::BodyNode* body);
+
+        /** @brief Function to create new @ref Object with shape with correct parent type */
         std::shared_ptr<Object>(*_dartShapeObjectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::ShapeNode* node);
 
+        /** @brief Parse DART Skeleton and create/update shapes */
         template <class T> void _parseSkeleton(T& parent, dart::dynamics::Skeleton& skel);
+
+        /** @brief Recursively parse DART BodyNode and all of its children */
         template <class T> void _parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn);
 
         SceneGraph::AbstractBasicObject3D<Float>& _scene;
@@ -112,7 +143,7 @@ template <class T> void World::_parseBodyNodeRecursive(T& parent, dart::dynamics
     auto it = _dartToMagnum.insert(std::make_pair(static_cast<dart::dynamics::Frame*>(&bn), nullptr));
     if (it.second) {
         object = _objectCreator(parent);
-        it.first->second = _dartObjectCreator(*object, &bn); //std::make_shared<Object>(*object, &bn);
+        it.first->second = _dartObjectCreator(*object, &bn);
     }
     else
         object = static_cast<SceneGraph::AbstractBasicObject3D<Float>*>(&it.first->second->object());
@@ -122,7 +153,7 @@ template <class T> void World::_parseBodyNodeRecursive(T& parent, dart::dynamics
         if (it.second) {
             /* create objects for the ShapeNodes to keep track of inner transformations */
             auto shapeObj = _objectCreator(*object);
-            it.first->second = _dartShapeObjectCreator(*shapeObj, shape); //std::make_shared<Object>(*shapeObj, shape);
+            it.first->second = _dartShapeObjectCreator(*shapeObj, shape);
             _updatedShapeObjects.insert(it.first->second);
         }
         it.first->second->update();

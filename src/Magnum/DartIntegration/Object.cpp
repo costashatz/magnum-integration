@@ -147,7 +147,7 @@ bool Object::_convertShapeNode() {
 
     if(getMaterial) {
         /* Get material information -- we ignore the alpha value
-        Note that if this is a MeshShape we will ignore this material */
+        Note that this material is not necessarily used for the MeshShapeNodes */
         Eigen::Vector4d col = shapeNode.getVisualAspect()->getRGBA();
         /* @to-do: Create Trade Material Data that includes alpha channel */
 
@@ -171,11 +171,7 @@ bool Object::_convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        if(_shapeData->mesh) {
-            delete _shapeData->mesh;
-            delete _shapeData->vertexBuffer;
-            delete _shapeData->indexBuffer;
-        }
+        /* @todo: delete mesh and previous buffers */
 
         _shapeData->mesh = mesh;
         _shapeData->vertexBuffer = vertexBuffer.release();
@@ -195,11 +191,7 @@ bool Object::_convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        if(_shapeData->mesh) {
-            delete _shapeData->mesh;
-            delete _shapeData->vertexBuffer;
-            delete _shapeData->indexBuffer;
-        }
+        /* @todo: delete mesh and previous buffers */
 
         _shapeData->mesh = mesh;
         _shapeData->vertexBuffer = vertexBuffer.release();
@@ -219,11 +211,7 @@ bool Object::_convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        if(_shapeData->mesh) {
-            delete _shapeData->mesh;
-            delete _shapeData->vertexBuffer;
-            delete _shapeData->indexBuffer;
-        }
+        /* @todo: delete mesh and previous buffers */
 
         _shapeData->mesh = mesh;
         _shapeData->vertexBuffer = vertexBuffer.release();
@@ -241,11 +229,7 @@ bool Object::_convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        if(_shapeData->mesh) {
-            delete _shapeData->mesh;
-            delete _shapeData->vertexBuffer;
-            delete _shapeData->indexBuffer;
-        }
+        /* @todo: delete mesh and previous buffers */
 
         _shapeData->mesh = mesh;
         _shapeData->vertexBuffer = vertexBuffer.release();
@@ -263,8 +247,8 @@ bool Object::_convertShapeNode() {
         if(!loaded || importer->mesh3DCount() < 1)
             return false;
 
-        /* Most probably it does not make sense that one ShapeNode has multiple
-           meshes */
+        /* @todo: support multiple meshes
+         * hint: use importer->object3D() functionality */
         Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(0);
         if(!meshData)
             return false;
@@ -331,11 +315,7 @@ bool Object::_convertShapeNode() {
         /* Close any file if opened */
         importer->close();
 
-        if(_shapeData->mesh) {
-            delete _shapeData->mesh;
-            delete _shapeData->vertexBuffer;
-            delete _shapeData->indexBuffer;
-        }
+        /* @todo: delete mesh and previous buffers */
 
         _shapeData->mesh = mesh;
         _shapeData->vertexBuffer = vertexBuffer.release();
@@ -376,11 +356,7 @@ bool Object::_convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        if(_shapeData->mesh) {
-            delete _shapeData->mesh;
-            delete _shapeData->vertexBuffer;
-            delete _shapeData->indexBuffer;
-        }
+        /* @todo: delete mesh and previous buffers */
 
         _shapeData->mesh = mesh;
         _shapeData->vertexBuffer = vertexBuffer.release();
@@ -398,11 +374,7 @@ bool Object::_convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        if(_shapeData->mesh) {
-            delete _shapeData->mesh;
-            delete _shapeData->vertexBuffer;
-            delete _shapeData->indexBuffer;
-        }
+        /* @todo: delete mesh and previous buffers */
 
         _shapeData->mesh = mesh;
         _shapeData->vertexBuffer = vertexBuffer.release();

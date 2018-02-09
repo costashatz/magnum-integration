@@ -25,7 +25,7 @@
 #
 
 find_package(Magnum REQUIRED SceneGraph MeshTools Primitives)
-find_package(DART CONFIG REQUIRED)
+find_package(DART 6.0.0 CONFIG REQUIRED)
 
 if(BUILD_STATIC)
     set(MAGNUM_DARTINTEGRATION_BUILD_STATIC 1)

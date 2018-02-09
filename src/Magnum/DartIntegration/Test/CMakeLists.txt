@@ -31,7 +31,7 @@ else()
 endif()
 
 find_package(Magnum REQUIRED OpenGLTester)
-find_package(DART CONFIG REQUIRED OPTIONAL_COMPONENTS io-urdf utils-urdf)
+find_package(DART 6.0.0 CONFIG REQUIRED OPTIONAL_COMPONENTS io-urdf utils-urdf)
 
 # The DART URDF library is only needed for the tests
 if(DART_utils-urdf_FOUND OR DART_io-urdf_FOUND)

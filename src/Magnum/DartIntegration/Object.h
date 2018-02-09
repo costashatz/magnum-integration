@@ -124,7 +124,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         /** @brief Get transformation from DART */
         Object& update();
 
-        /** @brief Get is Object was updated */
+        /** @brief Get whether Object was updated */
         bool used();
 
         /** @brief Clear usage flag (i.e., set it to false) */

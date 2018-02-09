@@ -34,7 +34,7 @@ namespace Magnum { namespace DartIntegration {
             obj.second->clearUsed();
 
         for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
-            _parseSkeleton(_scene, *_dartWorld->getSkeleton(i));
+            parseSkeleton(_scene, *_dartWorld->getSkeleton(i));
         }
 
         clearUnusedObjects();

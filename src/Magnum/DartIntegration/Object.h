@@ -34,6 +34,7 @@
 
 #include <Corrade/Containers/Array.h>
 
+#include <Magnum/Magnum.h>
 #include <Magnum/SceneGraph/AbstractFeature.h>
 #include <Magnum/SceneGraph/AbstractTranslationRotation3D.h>
 #include <Magnum/Trade/PhongMaterialData.h>
@@ -45,13 +46,7 @@ namespace dart { namespace dynamics {
     class ShapeNode;
 }}
 
-namespace Magnum {
-
-class Mesh;
-class Buffer;
-template<UnsignedInt dimensions> class Texture;
-
-namespace DartIntegration {
+namespace Magnum { namespace DartIntegration {
 
 /**
 @brief Shape data
@@ -74,7 +69,7 @@ struct ShapeData {
     Trade::PhongMaterialData material;
 
     /** @brief Textures */
-    Containers::Array<Texture<2>*> textures;
+    Containers::Array<Texture2D*> textures;
 };
 
 /**
@@ -84,13 +79,13 @@ Encapsulates `BodyNode` or `ShapeNode` as a @ref SceneGraph feature.
 
 @section DartIntegration-Object-usage Usage
 
-Common usage is to create a @ref Object to share transformation with a DART
+Common usage is to create a @ref DartIntegration::Object to share transformation with a DART
 `BodyNode` or `ShapeNode` by passing a pointer to its constructor:
 
 @code{.cpp}
 dart::dynamics::BodyNode* body = getBodyNodeFromDart();
 SceneGraph::Object<SceneGraph::MatrixTransformation3D> object;
-Object* obj = new Object{&object, body};
+DartIntegration::Object* obj = new Object{&object, body};
 @endcode
 
 or
@@ -98,25 +93,47 @@ or
 @code{.cpp}
 dart::dynamics::ShapeNode* node = getShapeNodeFromDart();
 SceneGraph::Object<SceneGraph::MatrixTransformation3D> object;
-Object* obj = new Object{&object, node};
+DartIntegration::Object* obj = new Object{&object, node};
 @endcode
 
 Only the DART body/node can affect the transformation of the Magnum object and
 not the other way around. To get the latest DART transformation, you should
 update the object with @ref update().
+
+@brief convertShapeNode
+
+Convert `ShapeNode` to mesh and material data
+
+Returns false if the shape of given `ShapeNode` is
+not supported. The following DART shapes are supported:
+
+-   `BoxShape`
+-   `CapsuleShape`
+-   `CylinderShape`
+-   `EllipsoidShape`
+-   `MeshShape`
+-   `SoftMeshShape`
+-   `SphereShape`
+
+The following DART shapes are not yet supported:
+
+-   `ConeShape`
+-   `LineSegmentShape`
+-   `MultiSphereConvexHullShape`
+-   `PlaneShape` (this is an infinite plane with normal)
 */
 class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeature3D<Float> {
     public:
         /**
          * @brief Constructor
-         * @param object    Object this @ref Object belongs to
+         * @param object    SceneGraph::Object this @ref DartIntegration::Object belongs to
          * @param node      DART `ShapeNode` to connect with
          */
         template<class T> Object(T& object, dart::dynamics::ShapeNode* node = nullptr): Object{object, object, node, nullptr} {}
 
         /**
          * @brief Constructor
-         * @param object    Object this @ref Object belongs to
+         * @param object    SceneGraph::Object this @ref DartIntegration::Object belongs to
          * @param body      DART `BodyNode` to connect with
          */
         template<class T> Object(T& object, dart::dynamics::BodyNode* body = nullptr): Object{object, object, nullptr, body} {}
@@ -142,28 +159,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
     private:
         explicit Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body);
 
-        /**
-        @brief Convert `ShapeNode` to mesh and material data
-
-        Returns @ref Corrade::Containers::NullOpt if the shape of given `ShapeNode` is
-        not supported. The following DART shapes are supported:
-
-        -   `BoxShape`
-        -   `CapsuleShape`
-        -   `CylinderShape`
-        -   `EllipsoidShape`
-        -   `MeshShape`
-        -   `SoftMeshShape`
-        -   `SphereShape`
-
-        The following DART shapes are not yet supported:
-
-        -   `ConeShape`
-        -   `LineSegmentShape`
-        -   `MultiSphereConvexHullShape`
-        -   `PlaneShape` (this is an infinite plane with normal)
-        */
-        bool _convertShapeNode();
+        bool convertShapeNode();
 
         SceneGraph::AbstractBasicTranslationRotation3D<Float>& _transformation;
         dart::dynamics::ShapeNode* _node;

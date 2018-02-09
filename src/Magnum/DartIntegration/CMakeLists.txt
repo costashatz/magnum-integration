@@ -74,7 +74,7 @@ install(TARGETS MagnumDartIntegration
 install(FILES ${MagnumDartIntegration_HEADERS} DESTINATION ${MAGNUM_INCLUDE_INSTALL_DIR}/DartIntegration)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/configure.h DESTINATION ${MAGNUM_INCLUDE_INSTALL_DIR}/DartIntegration)
 
-if(BUILD_TESTS)
+if(BUILD_GL_TESTS)
     add_subdirectory(Test)
 endif()
 

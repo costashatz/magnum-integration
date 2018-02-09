@@ -63,7 +63,7 @@ Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::Abs
 
 Object& Object::update() {
     if(_node)
-        _convertShapeNode();
+        convertShapeNode();
     _used = true;
     /* Get transform from DART */
     const Eigen::Isometry3d* trans;
@@ -111,7 +111,7 @@ std::reference_wrapper<ShapeData> Object::shapeData() {
     return std::ref(*_shapeData);
 }
 
-bool Object::_convertShapeNode() {
+bool Object::convertShapeNode() {
     /* We want to load AssimpImporter only once */
     /* @todo: check if we want to put it only in the MeshShape case */
     static PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};

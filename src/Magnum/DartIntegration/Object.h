@@ -33,6 +33,7 @@
 #include <memory>
 
 #include <Corrade/Containers/Array.h>
+#include <Corrade/Containers/Optional.h>
 
 #include <Magnum/Magnum.h>
 #include <Magnum/SceneGraph/AbstractFeature.h>
@@ -51,22 +52,23 @@ namespace Magnum { namespace DartIntegration {
 /**
 @brief Shape data
 
-@see @ref Object::_convertShapeNode()
+@see @ref Object::convertShapeNode()
 */
 struct ShapeData {
-    /** @brief Mesh */
-    /* @todo: support multiple meshes */
-    Mesh* mesh;
+    #ifndef DOXYGEN_GENERATING_OUTPUT
+    explicit ShapeData(Containers::Array<Mesh*> meshes, Containers::Array<Buffer*> vertexBuffers, Containers::Array<Buffer*> indexBuffers, Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials, Containers::Array<Texture2D*> textures): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)} {}
+    #endif
+    /** @brief Meshes */
+    Containers::Array<Mesh*> meshes;
 
-    /** @brief vertex Buffer */
-    Buffer* vertexBuffer;
+    /** @brief vertex Buffers */
+    Containers::Array<Buffer*> vertexBuffers;
 
-    /** @brief index Buffer */
-    Buffer* indexBuffer;
+    /** @brief index Buffers */
+    Containers::Array<Buffer*> indexBuffers;
 
     /** @brief Material data */
-    /* @todo: support multiple materials */
-    Trade::PhongMaterialData material;
+    Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials;
 
     /** @brief Textures */
     Containers::Array<Texture2D*> textures;
@@ -147,6 +149,9 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         /** @brief Clear usage flag (i.e., set it to false) */
         Object& clearUsed();
 
+        /** @brief Get whether Object's mesh was updated */
+        bool updatedMesh();
+
         /** @brief Get ShapeData */
         std::reference_wrapper<ShapeData> shapeData();
 
@@ -165,7 +170,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         dart::dynamics::ShapeNode* _node;
         dart::dynamics::BodyNode* _body;
         std::unique_ptr<ShapeData> _shapeData;
-        bool _used;
+        bool _used, _updatedMesh;
 };
 
 }}

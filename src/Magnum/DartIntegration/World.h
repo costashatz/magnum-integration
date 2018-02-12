@@ -154,9 +154,10 @@ template <class T> void World::parseBodyNodeRecursive(T& parent, dart::dynamics:
             /* create objects for the ShapeNodes to keep track of inner transformations */
             auto shapeObj = objectCreator(*object);
             it.first->second = dartShapeObjectCreator(*shapeObj, shape);
-            _updatedShapeObjects.insert(it.first->second);
         }
         it.first->second->update();
+        if(it.first->second->updatedMesh())
+            _updatedShapeObjects.insert(it.first->second);
     }
 
     /* parse the children recursively */

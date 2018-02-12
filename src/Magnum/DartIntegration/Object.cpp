@@ -54,12 +54,14 @@
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/ImageData.h>
 #include <Magnum/Trade/MeshData3D.h>
+#include <Magnum/Trade/MeshObjectData3D.h>
+#include <Magnum/Trade/ObjectData3D.h>
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Trade/TextureData.h>
 
 namespace Magnum { namespace DartIntegration {
 
-Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _used(false) {}
+Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _used(false), _updatedMesh(false) {}
 
 Object& Object::update() {
     if(_node)
@@ -107,11 +109,16 @@ Object& Object::clearUsed() {
     return *this;
 }
 
+bool Object::updatedMesh() {
+    return _updatedMesh;
+}
+
 std::reference_wrapper<ShapeData> Object::shapeData() {
     return std::ref(*_shapeData);
 }
 
 bool Object::convertShapeNode() {
+    _updatedMesh = false;
     /* We want to load AssimpImporter only once */
     /* @todo: check if we want to put it only in the MeshShape case */
     static PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
@@ -133,7 +140,7 @@ bool Object::convertShapeNode() {
     bool firstTime = !_shapeData;
     if(firstTime){
         /* default flags for material and default shininess to 80.f */
-        _shapeData = std::unique_ptr<ShapeData>(new ShapeData{nullptr, nullptr, nullptr, Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f}, {}});
+        _shapeData = std::unique_ptr<ShapeData>(new ShapeData{{}, {}, {}, {}, {}});
     }
 
     dart::dynamics::ShapeNode& shapeNode = *this->shapeNode();
@@ -144,6 +151,10 @@ bool Object::convertShapeNode() {
     bool getMesh = firstTime || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_VERTICES)
                              || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_ELEMENTS)
                              || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC);
+    /* update flag for rendering */
+    _updatedMesh = getMaterial || getPrimitive || getMesh;
+
+    Trade::PhongMaterialData nodeMaterial{Trade::PhongMaterialData::Flags{}, 80.f};
 
     if(getMaterial) {
         /* Get material information -- we ignore the alpha value
@@ -152,10 +163,16 @@ bool Object::convertShapeNode() {
         /* @to-do: Create Trade Material Data that includes alpha channel */
 
         /* get diffuse color from Dart ShapeNode */
-        _shapeData->material.diffuseColor() = Color3(col(0), col(1), col(2));
+        nodeMaterial.diffuseColor() = Color3(col(0), col(1), col(2));
         /* default colors for ambient (black) and specular (white) */
-        _shapeData->material.ambientColor() = Vector3{0.f, 0.f, 0.f};
-        _shapeData->material.specularColor() = Vector3{1.f, 1.f, 1.f};
+        nodeMaterial.ambientColor() = Vector3{0.f, 0.f, 0.f};
+        nodeMaterial.specularColor() = Vector3{1.f, 1.f, 1.f};
+
+        if(shape->getType() != dart::dynamics::MeshShape::getStaticType()) {
+            if(_shapeData->materials.size() != 1)
+                _shapeData->materials = Containers::Array<Containers::Optional<Trade::PhongMaterialData>>(1);
+            _shapeData->materials[0] = std::move(nodeMaterial);
+        }
     }
 
     if(getPrimitive && shape->getType() == dart::dynamics::BoxShape::getStaticType()) {
@@ -171,11 +188,22 @@ bool Object::convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* @todo: delete mesh and previous buffers */
+        /* Delete meshes and previous buffers */
+        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+            delete _shapeData->meshes[i];
+            delete _shapeData->vertexBuffers[i];
+            delete _shapeData->indexBuffers[i];
+        }
 
-        _shapeData->mesh = mesh;
-        _shapeData->vertexBuffer = vertexBuffer.release();
-        _shapeData->indexBuffer = indexBuffer.release();
+        if(_shapeData->meshes.size() != 1) {
+            _shapeData->meshes = Containers::Array<Mesh*>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+        }
+
+        _shapeData->meshes[0] = mesh;
+        _shapeData->vertexBuffers[0] = vertexBuffer.release();
+        _shapeData->indexBuffers[0] = indexBuffer.release();
     } else if(getPrimitive && shape->getType() == dart::dynamics::CapsuleShape::getStaticType()) {
         auto capsuleShape = std::static_pointer_cast<dart::dynamics::CapsuleShape>(shape);
 
@@ -191,11 +219,22 @@ bool Object::convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* @todo: delete mesh and previous buffers */
+        /* Delete meshes and previous buffers */
+        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+            delete _shapeData->meshes[i];
+            delete _shapeData->vertexBuffers[i];
+            delete _shapeData->indexBuffers[i];
+        }
 
-        _shapeData->mesh = mesh;
-        _shapeData->vertexBuffer = vertexBuffer.release();
-        _shapeData->indexBuffer = indexBuffer.release();
+        if(_shapeData->meshes.size() != 1) {
+            _shapeData->meshes = Containers::Array<Mesh*>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+        }
+
+        _shapeData->meshes[0] = mesh;
+        _shapeData->vertexBuffers[0] = vertexBuffer.release();
+        _shapeData->indexBuffers[0] = indexBuffer.release();
     } else if(getPrimitive && shape->getType() == dart::dynamics::CylinderShape::getStaticType()) {
         auto cylinderShape = std::static_pointer_cast<dart::dynamics::CylinderShape>(shape);
 
@@ -211,11 +250,22 @@ bool Object::convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* @todo: delete mesh and previous buffers */
+        /* Delete meshes and previous buffers */
+        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+            delete _shapeData->meshes[i];
+            delete _shapeData->vertexBuffers[i];
+            delete _shapeData->indexBuffers[i];
+        }
 
-        _shapeData->mesh = mesh;
-        _shapeData->vertexBuffer = vertexBuffer.release();
-        _shapeData->indexBuffer = indexBuffer.release();
+        if(_shapeData->meshes.size() != 1) {
+            _shapeData->meshes = Containers::Array<Mesh*>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+        }
+
+        _shapeData->meshes[0] = mesh;
+        _shapeData->vertexBuffers[0] = vertexBuffer.release();
+        _shapeData->indexBuffers[0] = indexBuffer.release();
     } else if(getPrimitive && shape->getType() == dart::dynamics::EllipsoidShape::getStaticType()) {
         auto ellipsoidShape = std::static_pointer_cast<dart::dynamics::EllipsoidShape>(shape);
 
@@ -229,12 +279,23 @@ bool Object::convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* @todo: delete mesh and previous buffers */
+        /* Delete meshes and previous buffers */
+        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+            delete _shapeData->meshes[i];
+            delete _shapeData->vertexBuffers[i];
+            delete _shapeData->indexBuffers[i];
+        }
 
-        _shapeData->mesh = mesh;
-        _shapeData->vertexBuffer = vertexBuffer.release();
-        _shapeData->indexBuffer = indexBuffer.release();
-    } else if((getPrimitive || getMesh) && shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
+        if(_shapeData->meshes.size() != 1) {
+            _shapeData->meshes = Containers::Array<Mesh*>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+        }
+
+        _shapeData->meshes[0] = mesh;
+        _shapeData->vertexBuffers[0] = vertexBuffer.release();
+        _shapeData->indexBuffers[0] = indexBuffer.release();
+    } else if((getPrimitive || getMesh || getMaterial) && shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
         if (!importer)
             return false;
         /*  @todo check if we should not ignore the transformation in the Mesh */
@@ -247,33 +308,63 @@ bool Object::convertShapeNode() {
         if(!loaded || importer->mesh3DCount() < 1)
             return false;
 
-        /* @todo: support multiple meshes
-         * hint: use importer->object3D() functionality */
-        Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(0);
-        if(!meshData)
-            return false;
+        UnsignedInt meshesCount = 0;
+        for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {
+            auto meshData3D = dynamic_cast<Trade::MeshObjectData3D*>(importer->object3D(i).release());
+            if(meshData3D)
+                meshesCount++;
+        }
 
-        Eigen::Vector3d scale = meshShape->getScale();
-        /* Scale only if scaling vector is different from (1., 1., 1.) */
-        if(((scale.array() - 1.).abs() > 1e-3).any())
-            MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(scale(0), scale(1), scale(2))), meshData->positions(0));
+        Containers::Array<Mesh*> meshes(meshesCount);
+        Containers::Array<Buffer*> vertexBuffers(meshesCount);
+        Containers::Array<Buffer*> indexBuffers(meshesCount);
+        Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials(meshesCount);
 
-        auto colorMode = meshShape->getColorMode();
-        /* only get materials from mesh if the appropriate color mode */
-        if(importer->materialCount() && getMaterial && colorMode != dart::dynamics::MeshShape::ColorMode::SHAPE_COLOR) {
-            if(colorMode == dart::dynamics::MeshShape::ColorMode::MATERIAL_COLOR) {
-                /* @todo: check which material the mesh wants */
-                auto matPtr = importer->material(0);
-                _shapeData->material = std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()));
-            }
-            else if(colorMode == dart::dynamics::MeshShape::ColorMode::COLOR_INDEX) {
-                /* @todo: check if index is within bounds */
-                /* get diffuse color from Mesh color */
-                Color4 meshColor = meshData->colors(0)[meshShape->getColorIndex()];
-                _shapeData->material.diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
-                /* default colors for ambient (black) and specular (white) */
-                _shapeData->material.ambientColor() = Vector3{0.f, 0.f, 0.f};
-                _shapeData->material.specularColor() = Vector3{1.f, 1.f, 1.f};
+        UnsignedInt j = 0;
+        for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {
+            auto meshData3D = dynamic_cast<Trade::MeshObjectData3D*>(importer->object3D(i).release());
+            if(meshData3D) {
+                Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(meshData3D->instance());
+                if(!meshData)
+                    return false;
+
+                Eigen::Vector3d scale = meshShape->getScale();
+                /* Scale only if scaling vector is different from (1., 1., 1.) */
+                if(((scale.array() - 1.).abs() > 1e-3).any())
+                    MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(scale(0), scale(1), scale(2))), meshData->positions(0));
+
+                auto colorMode = meshShape->getColorMode();
+                /* only get materials from mesh if the appropriate color mode */
+                if(importer->materialCount() && getMaterial) {
+                    if(colorMode == dart::dynamics::MeshShape::ColorMode::MATERIAL_COLOR) {
+                        auto matPtr = importer->material(meshData3D->material());
+                        materials[j] = std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()));
+                    }
+                    else if(colorMode == dart::dynamics::MeshShape::ColorMode::COLOR_INDEX) {
+                        /* @todo: check if index is within bounds */
+                        /* get diffuse color from Mesh color */
+                        Color4 meshColor = meshData->colors(0)[meshShape->getColorIndex()];
+                        materials[j] = Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
+                        materials[j]->diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
+                        /* default colors for ambient (black) and specular (white) */
+                        materials[j]->ambientColor() = Vector3{0.f, 0.f, 0.f};
+                        materials[j]->specularColor() = Vector3{1.f, 1.f, 1.f};
+                    }
+                    else if (colorMode == dart::dynamics::MeshShape::ColorMode::SHAPE_COLOR) {
+                        materials[j] = std::move(nodeMaterial);
+                    }
+                }
+
+                /* Create the mesh */
+                Mesh* mesh = new Mesh{NoCreate};
+                std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+                std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::StaticDraw);
+
+                meshes[j] = mesh;
+                vertexBuffers[j] = vertexBuffer.release();
+                indexBuffers[j] = indexBuffer.release();
+
+                j++;
             }
         }
 
@@ -307,24 +398,27 @@ bool Object::convertShapeNode() {
             textures[i] = texture;
         }
 
-        /* Create the mesh */
-        Mesh* mesh = new Mesh{NoCreate};
-        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::StaticDraw);
+        /* Delete meshes and previous buffers */
+        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+            delete _shapeData->meshes[i];
+            delete _shapeData->vertexBuffers[i];
+            delete _shapeData->indexBuffers[i];
+        }
+
+        _shapeData->meshes = std::move(meshes);
+        _shapeData->vertexBuffers = std::move(vertexBuffers);
+        _shapeData->indexBuffers = std::move(indexBuffers);
+
+        if(getMaterial) {
+            _shapeData->materials = std::move(materials);
+
+            for(UnsignedInt i = 0; i < _shapeData->textures.size(); i++)
+                delete _shapeData->textures[i];
+            _shapeData->textures = std::move(textures);
+        }
 
         /* Close any file if opened */
         importer->close();
-
-        /* @todo: delete mesh and previous buffers */
-
-        _shapeData->mesh = mesh;
-        _shapeData->vertexBuffer = vertexBuffer.release();
-        _shapeData->indexBuffer = indexBuffer.release();
-
-        if(getMaterial) {
-            /* @todo: delete old textures */
-            _shapeData->textures = std::move(textures);
-        }
     } else if((getPrimitive || getMesh) && shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
         /* For now soft meshes contain no normals and should be drawn without face culling */
         /* @todo: add proper normals */
@@ -356,11 +450,22 @@ bool Object::convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* @todo: delete mesh and previous buffers */
+        /* Delete meshes and previous buffers */
+        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+            delete _shapeData->meshes[i];
+            delete _shapeData->vertexBuffers[i];
+            delete _shapeData->indexBuffers[i];
+        }
 
-        _shapeData->mesh = mesh;
-        _shapeData->vertexBuffer = vertexBuffer.release();
-        _shapeData->indexBuffer = indexBuffer.release();
+        if(_shapeData->meshes.size() != 1) {
+            _shapeData->meshes = Containers::Array<Mesh*>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+        }
+
+        _shapeData->meshes[0] = mesh;
+        _shapeData->vertexBuffers[0] = vertexBuffer.release();
+        _shapeData->indexBuffers[0] = indexBuffer.release();
     } else if(getPrimitive && shape->getType() == dart::dynamics::SphereShape::getStaticType()) {
         auto sphereShape = std::static_pointer_cast<dart::dynamics::SphereShape>(shape);
 
@@ -374,11 +479,22 @@ bool Object::convertShapeNode() {
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
         std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* @todo: delete mesh and previous buffers */
+        /* Delete meshes and previous buffers */
+        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+            delete _shapeData->meshes[i];
+            delete _shapeData->vertexBuffers[i];
+            delete _shapeData->indexBuffers[i];
+        }
 
-        _shapeData->mesh = mesh;
-        _shapeData->vertexBuffer = vertexBuffer.release();
-        _shapeData->indexBuffer = indexBuffer.release();
+        if(_shapeData->meshes.size() != 1) {
+            _shapeData->meshes = Containers::Array<Mesh*>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+        }
+
+        _shapeData->meshes[0] = mesh;
+        _shapeData->vertexBuffers[0] = vertexBuffer.release();
+        _shapeData->indexBuffers[0] = indexBuffer.release();
     } else if(getMaterial || getPrimitive || getMesh) {
         Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";
         return false;

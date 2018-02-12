@@ -330,13 +330,16 @@ void DartSkeletonTest::urdf() {
         auto shape = dartObj->shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
         ShapeData& mydata = dartObj->shapeData();
-        CORRADE_VERIFY(mydata.mesh);
-        CORRADE_VERIFY(mydata.vertexBuffer);
-        CORRADE_VERIFY(mydata.indexBuffer);
+        CORRADE_VERIFY(mydata.meshes.size());
+        CORRADE_VERIFY(mydata.vertexBuffers.size());
+        CORRADE_VERIFY(mydata.indexBuffers.size());
+        CORRADE_COMPARE(mydata.meshes.size(), mydata.vertexBuffers.size());
+        CORRADE_COMPARE(mydata.meshes.size(), mydata.indexBuffers.size());
+        CORRADE_COMPARE(mydata.meshes.size(), mydata.materials.size());
         {
             CORRADE_EXPECT_FAIL_IF(assimpVersion < 302,
                 "Old versions of Assimp do not load the material correctly");
-            CORRADE_COMPARE(mydata.material.diffuseColor(), (Vector3{0.6f, 0.6f, 0.6f}));
+            CORRADE_COMPARE(mydata.materials[0]->diffuseColor(), (Vector3{0.6f, 0.6f, 0.6f}));
         }
         CORRADE_COMPARE(mydata.textures.size(), 0);
     }
@@ -366,13 +369,25 @@ void DartSkeletonTest::texture() {
 
     std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
 
+    for(int i = 0; i < 1000; i++) {
+        dartWorld->step();
+        /* refresh graphics at 60Hz */
+        if(i%15 == 0) {
+            dartWorld->refresh();
+            dartWorld->clearUpdatedShapeObjects();
+        }
+    }
+
     for(auto& dartObj: dartWorld->shapeObjects()) {
         auto shape = dartObj->shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
         ShapeData& mydata = dartObj->shapeData();
-        CORRADE_VERIFY(mydata.mesh);
-        CORRADE_VERIFY(mydata.vertexBuffer);
-        CORRADE_VERIFY(mydata.indexBuffer);
+        CORRADE_VERIFY(mydata.meshes.size());
+        CORRADE_VERIFY(mydata.vertexBuffers.size());
+        CORRADE_VERIFY(mydata.indexBuffers.size());
+        CORRADE_COMPARE(mydata.meshes.size(), mydata.vertexBuffers.size());
+        CORRADE_COMPARE(mydata.meshes.size(), mydata.indexBuffers.size());
+        CORRADE_COMPARE(mydata.meshes.size(), mydata.materials.size());
         CORRADE_COMPARE(mydata.textures.size(), 1);
         CORRADE_VERIFY(mydata.textures[0]);
     }

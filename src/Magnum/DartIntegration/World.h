@@ -46,16 +46,73 @@
 namespace Magnum { namespace DartIntegration {
 
 /**
+@brief DART Physics World
+
+Parses a `dart::simulation::World` for easy usage in Magnum. It basically parses all
+the `dart::dynamics::Skeleton` objects in the World and keeps track of a list of
+@ref DartIntegration::Object instances. It automatically captures any change that
+ocurres in the `dart::simulation::World`. After each graphics @ref DartIntegration::World::refresh
+the user has access to the deleted shapes via @ref DartIntegration::World::unusedObjects and
+can get the update shapes (material or mesh) via @ref DartIntegration::World::updatedShapeObjects.
+
+@section DartIntegration-World-usage Usage
+
+Common usage is to create a `dart::simulation::WorldPtr` and then instantiate
+a `DartIntegration::World` by passing a parent @ref SceneGraph::AbstractFeature and
+the `dart::simulation::WorldPtr` to its constructor:
+
+@code{.cpp}
+dart::simulation::WorldPtr dartWorld = createWorldInDart();
+addDartSkeletonsToDartWorld();
+SceneGraph::Scene<SceneGraph::MatrixTransformation3D> scene;
+SceneGraph::Object<SceneGraph::MatrixTransformation3D> object{&scene};
+// object should never be a @ref SceneGraph::Scene
+auto world = std::make_shared<DartIntegration::World>(object, dartWorld);
+@endcode
+
+Only the `dart::simulation::World` can affect the transformation of the Magnum
+@ref DartIntegration::World and not the other way around. To update the world
+and get the updated shapes you can do the following:
+
+@code{.cpp}
+std::shared_ptr<DartIntegration::World> world = createDartIntegrationWorld();
+// Simulate with time step of 0.001 seconds
+world->world()->setTimeStep(0.001);
+
+for(UnsignedInt i = 0; i < simulationSteps; i++) {
+    world->step();
+    // update graphics at ~60Hz
+    // 15*0.001 ~= 60Hz
+    if(i%15 == 0) {
+        world->refresh();
+
+        // get unused/deleted shapes
+        std::vector<std::shared_ptr<Object>> unusedObjects = world->unusedObjects();
+
+        deleteObjectsFromScene(unusedObjects);
+
+        // get updated shapes;
+        // ones that either the material or the mesh pointers have changed
+        std::vector<std::shared_ptr<Object>> updatedObjects = world->updatedShapeObjects();
+
+        updatePointersAndMaterials(updatedObjects);
+
+        // clear list of updated objects
+        world->clearUpdatedShapeObjects();
+    }
+}
+@endcode
+
 @experimental
 */
 class MAGNUM_DARTINTEGRATION_EXPORT World {
     public:
          /**
          * @brief Constructor
-         * @param scene    Parent scene
+         * @param object    Parent object
          * @param skeleton  DART World shared pointer to parse
          */
-        template<class T> explicit World(T& scene, std::shared_ptr<dart::simulation::World> world = nullptr): _scene(scene), _dartWorld(world) {
+        template<class T> explicit World(T& object, std::shared_ptr<dart::simulation::World> world): _object(object), _dartWorld(world) {
             objectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent) -> SceneGraph::AbstractBasicObject3D<Float>* {
                 return new T{static_cast<T*>(&parent)};
             };
@@ -122,7 +179,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Recursively parse DART BodyNode and all of its children */
         template <class T> void parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn);
 
-        SceneGraph::AbstractBasicObject3D<Float>& _scene;
+        SceneGraph::AbstractBasicObject3D<Float>& _object;
         std::shared_ptr<dart::simulation::World> _dartWorld;
         std::unordered_map<dart::dynamics::Frame*, std::shared_ptr<Object>> _dartToMagnum;
         std::vector<std::shared_ptr<Object>> _toRemove;

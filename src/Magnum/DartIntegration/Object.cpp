@@ -312,9 +312,12 @@ bool Object::convertShapeNode() {
         if (!importer)
             return false;
         auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
-        /* @todo: check if scaling is per mesh */
-        Eigen::Vector3d scale = meshShape->getScale();
-        _shapeData->scaling = Vector3(scale(0), scale(1), scale(2));
+
+        if(getPrimitive) {
+            /* @todo: check if scaling can be per mesh */
+            Eigen::Vector3d scale = meshShape->getScale();
+            _shapeData->scaling = Vector3(scale(0), scale(1), scale(2));
+        }
 
         const aiScene* aiMesh = meshShape->getMesh();
         std::string meshPath = Utility::Directory::path(meshShape->getMeshPath());
@@ -343,36 +346,40 @@ bool Object::convertShapeNode() {
                 if(!meshData)
                     return false;
 
-                auto colorMode = meshShape->getColorMode();
-                /* only get materials from mesh if the appropriate color mode */
-                if(importer->materialCount() && getMaterial) {
-                    if(colorMode == dart::dynamics::MeshShape::ColorMode::MATERIAL_COLOR) {
-                        auto matPtr = importer->material(meshData3D->material());
-                        materials[j] = std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()));
-                    }
-                    else if(colorMode == dart::dynamics::MeshShape::ColorMode::COLOR_INDEX) {
-                        /* @todo: check if index is within bounds */
-                        /* get diffuse color from Mesh color */
-                        Color4 meshColor = meshData->colors(0)[meshShape->getColorIndex()];
-                        materials[j] = Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
-                        materials[j]->diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
-                        /* default colors for ambient (black) and specular (white) */
-                        materials[j]->ambientColor() = Vector3{0.f, 0.f, 0.f};
-                        materials[j]->specularColor() = Vector3{1.f, 1.f, 1.f};
-                    }
-                    else if (colorMode == dart::dynamics::MeshShape::ColorMode::SHAPE_COLOR) {
-                        materials[j] = std::move(nodeMaterial);
+                if(getMaterial) {
+                    auto colorMode = meshShape->getColorMode();
+                    /* only get materials from mesh if the appropriate color mode */
+                    if(importer->materialCount() && getMaterial) {
+                        if(colorMode == dart::dynamics::MeshShape::ColorMode::MATERIAL_COLOR) {
+                            auto matPtr = importer->material(meshData3D->material());
+                            materials[j] = std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()));
+                        }
+                        else if(colorMode == dart::dynamics::MeshShape::ColorMode::COLOR_INDEX) {
+                            /* @todo: check if index is within bounds */
+                            /* get diffuse color from Mesh color */
+                            Color4 meshColor = meshData->colors(0)[meshShape->getColorIndex()];
+                            materials[j] = Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
+                            materials[j]->diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
+                            /* default colors for ambient (black) and specular (white) */
+                            materials[j]->ambientColor() = Vector3{0.f, 0.f, 0.f};
+                            materials[j]->specularColor() = Vector3{1.f, 1.f, 1.f};
+                        }
+                        else if (colorMode == dart::dynamics::MeshShape::ColorMode::SHAPE_COLOR) {
+                            materials[j] = std::move(nodeMaterial);
+                        }
                     }
                 }
 
-                /* Create the mesh */
-                Mesh* mesh = new Mesh{NoCreate};
-                std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-                std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::StaticDraw);
+                if(getMesh) {
+                    /* Create the mesh */
+                    Mesh* mesh = new Mesh{NoCreate};
+                    std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+                    std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::StaticDraw);
 
-                meshes[j] = mesh;
-                vertexBuffers[j] = vertexBuffer.release();
-                indexBuffers[j] = indexBuffer.release();
+                    meshes[j] = mesh;
+                    vertexBuffers[j] = vertexBuffer.release();
+                    indexBuffers[j] = indexBuffer.release();
+                }
 
                 j++;
             }
@@ -380,44 +387,48 @@ bool Object::convertShapeNode() {
 
         Containers::Array<Texture2D*> textures(importer->textureCount());
 
-        for(UnsignedInt i = 0; i < importer->textureCount(); ++i) {
-            textures[i] = nullptr;
+        if(getMaterial) {
+            for(UnsignedInt i = 0; i < importer->textureCount(); ++i) {
+                textures[i] = nullptr;
 
-            /* Cannot load, leave this element set to NullOpt */
-            Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
-            if (!textureData || textureData->type() != Trade::TextureData::Type::Texture2D) {
-                Warning{} << "Cannot load texture, skipping";
-                continue;
+                /* Cannot load, leave this element set to NullOpt */
+                Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
+                if (!textureData || textureData->type() != Trade::TextureData::Type::Texture2D) {
+                    Warning{} << "Cannot load texture, skipping";
+                    continue;
+                }
+
+                /* Cannot load, leave this element set to NullOpt */
+                Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image());
+                if (!imageData) {
+                    Warning{} << "Cannot load texture image, skipping";
+                    continue;
+                }
+
+                auto texture = new Texture2D;
+                texture->setMagnificationFilter(textureData->magnificationFilter())
+                    .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
+                    .setWrapping(textureData->wrapping().xy())
+                    .setStorage(1, TextureFormat::RGB8, imageData->size())
+                    .setSubImage(0, {}, *imageData)
+                    .generateMipmap();
+
+                textures[i] = texture;
             }
-
-            /* Cannot load, leave this element set to NullOpt */
-            Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image());
-            if (!imageData) {
-                Warning{} << "Cannot load texture image, skipping";
-                continue;
-            }
-
-            auto texture = new Texture2D;
-            texture->setMagnificationFilter(textureData->magnificationFilter())
-                .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
-                .setWrapping(textureData->wrapping().xy())
-                .setStorage(1, TextureFormat::RGB8, imageData->size())
-                .setSubImage(0, {}, *imageData)
-                .generateMipmap();
-
-            textures[i] = texture;
         }
 
-        /* Delete meshes and previous buffers */
-        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-            delete _shapeData->meshes[i];
-            delete _shapeData->vertexBuffers[i];
-            delete _shapeData->indexBuffers[i];
-        }
+        if(getMesh) {
+            /* Delete meshes and previous buffers */
+            for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
+                delete _shapeData->meshes[i];
+                delete _shapeData->vertexBuffers[i];
+                delete _shapeData->indexBuffers[i];
+            }
 
-        _shapeData->meshes = std::move(meshes);
-        _shapeData->vertexBuffers = std::move(vertexBuffers);
-        _shapeData->indexBuffers = std::move(indexBuffers);
+            _shapeData->meshes = std::move(meshes);
+            _shapeData->vertexBuffers = std::move(vertexBuffers);
+            _shapeData->indexBuffers = std::move(indexBuffers);
+        }
 
         if(getMaterial) {
             _shapeData->materials = std::move(materials);
@@ -497,7 +508,7 @@ bool Object::convertShapeNode() {
             _shapeData->vertexBuffers[0] = vertexBuffer.release();
             _shapeData->indexBuffers[0] = indexBuffer.release();
         }
-    } else if(getMaterial || getPrimitive || getMesh) {
+    } else if(firstTime) {
         Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";
         return false;
     }

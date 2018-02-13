@@ -55,7 +55,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
          * @param scene    Parent scene
          * @param skeleton  DART World shared pointer to parse
          */
-        template<class T> explicit World(T& scene, std::shared_ptr<dart::simulation::World> world = nullptr): _scene{scene}, _dartWorld(world) {
+        template<class T> explicit World(T& scene, std::shared_ptr<dart::simulation::World> world = nullptr): _scene(scene), _dartWorld(world) {
             objectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent) -> SceneGraph::AbstractBasicObject3D<Float>* {
                 return new T{static_cast<T*>(&parent)};
             };

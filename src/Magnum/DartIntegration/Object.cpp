@@ -59,6 +59,42 @@
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Trade/TextureData.h>
 
+static Eigen::Vector3d normalFromVertex(const dart::dynamics::SoftBodyNode* bn,
+                                        const Eigen::Vector3i& face,
+                                        std::size_t v)
+{
+  const Eigen::Vector3d& v0 = bn->getPointMass(face[v])->getLocalPosition();
+  const Eigen::Vector3d& v1 = bn->getPointMass(face[(v+1)%3])->getLocalPosition();
+  const Eigen::Vector3d& v2 = bn->getPointMass(face[(v+2)%3])->getLocalPosition();
+
+  const Eigen::Vector3d dv1 = v1-v0;
+  const Eigen::Vector3d dv2 = v2-v0;
+  const Eigen::Vector3d n = dv1.cross(dv2);
+
+  double weight = n.norm()/(dv1.norm()*dv2.norm());
+  weight = std::max( -1.0, std::min( 1.0, weight) );
+
+  return n.normalized() * asin(weight);
+}
+
+static void computeNormals(std::vector<Eigen::Vector3d>& normals,
+                           const dart::dynamics::SoftBodyNode* bn)
+{
+  for(std::size_t i=0; i<normals.size(); ++i)
+    normals[i] = Eigen::Vector3d::Zero();
+
+  for(std::size_t i=0; i<bn->getNumFaces(); ++i)
+  {
+    const Eigen::Vector3i& face = bn->getFace(i);
+    for(std::size_t j=0; j<3; ++j)
+      normals[face[j]] += normalFromVertex(bn, face, j);
+  }
+
+  for(std::size_t i=0; i<normals.size(); ++i)
+    normals[i].normalize();
+}
+
+
 namespace Magnum { namespace DartIntegration {
 
 Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _used(false), _updatedMesh(false) {}
@@ -139,7 +175,6 @@ bool Object::convertShapeNode() {
     // _shapeData = std::unique_ptr<ShapeData>(new ShapeData{shapeData->mesh, shapeData->vertexBuffer, shapeData->indexBuffer, std::move(shapeData->material), std::move(shapeData->textures)});
     bool firstTime = !_shapeData;
     if(firstTime){
-        /* default flags for material and default shininess to 80.f */
         _shapeData = std::unique_ptr<ShapeData>(new ShapeData{{}, {}, {}, {}, {}});
     }
 
@@ -269,10 +304,10 @@ bool Object::convertShapeNode() {
     } else if(getPrimitive && shape->getType() == dart::dynamics::EllipsoidShape::getStaticType()) {
         auto ellipsoidShape = std::static_pointer_cast<dart::dynamics::EllipsoidShape>(shape);
 
-        Eigen::Vector3d size = ellipsoidShape->getDiameters();
+        Eigen::Vector3d size = ellipsoidShape->getDiameters().array() * 0.5;
 
         Trade::MeshData3D meshData{Primitives::Icosphere::solid(5)};
-        MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{Float(size(0)), Float(size(1)), Float(size(2))}), meshData.positions(0));
+        MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(size(0), size(1), size(2))), meshData.positions(0));
 
         /* Create the mesh */
         Mesh* mesh = new Mesh{NoCreate};
@@ -420,30 +455,29 @@ bool Object::convertShapeNode() {
         /* Close any file if opened */
         importer->close();
     } else if((getPrimitive || getMesh) && shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
-        /* For now soft meshes contain no normals and should be drawn without face culling */
-        /* @todo: add proper normals */
+        /* Soft meshes contain should be drawn without face culling */
         auto meshShape = std::static_pointer_cast<dart::dynamics::SoftMeshShape>(shape);
 
         const dart::dynamics::SoftBodyNode* bn = meshShape->getSoftBodyNode();
 
-        std::vector<std::vector<Vector3>> positions;
+        std::vector<Eigen::Vector3d> eigNormals(bn->getNumPointMasses());
+        computeNormals(eigNormals, bn);
+
+        std::vector<std::vector<Vector3>> positions, normals;
         positions.push_back(std::vector<Vector3>());
-        std::vector<UnsignedInt> indices;
+        normals.push_back(std::vector<Vector3>());
 
-        for(UnsignedInt i=0; i < bn->getNumPointMasses(); ++i)
-        {
-            const Eigen::Vector3d& pos = bn->getPointMass(i)->getLocalPosition();
-            positions[0].push_back(Vector3(pos(0), pos(1), pos(2)));
-        }
-
-        for(UnsignedInt i=0; i < bn->getNumFaces(); ++i)
-        {
+        for(UnsignedInt i = 0; i < bn->getNumFaces(); ++i) {
             const Eigen::Vector3i& F = bn->getFace(i);
-            for(UnsignedInt j=0; j<3; ++j)
-                indices.push_back(F[j]);
+            for(UnsignedInt j = 0; j < 3; ++j) {
+                const Eigen::Vector3d& pos = bn->getPointMass(F[j])->getLocalPosition();
+                positions[0].push_back(Vector3(pos(0), pos(1), pos(2)));
+                const Eigen::Vector3d& norm = eigNormals[F[j]];
+                normals[0].push_back(Vector3(norm(0), norm(1), norm(2)));
+            }
         }
 
-        Trade::MeshData3D meshData{MeshPrimitive::Triangles, indices, positions, std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
+        Trade::MeshData3D meshData{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), positions, normals, std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
 
         /* Create the Magnum Mesh */
         Mesh* mesh = new Mesh{NoCreate};

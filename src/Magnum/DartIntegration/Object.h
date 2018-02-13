@@ -123,6 +123,8 @@ The following DART shapes are not yet supported:
 -   `LineSegmentShape`
 -   `MultiSphereConvexHullShape`
 -   `PlaneShape` (this is an infinite plane with normal)
+
+@experimental
 */
 class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeature3D<Float> {
     public:

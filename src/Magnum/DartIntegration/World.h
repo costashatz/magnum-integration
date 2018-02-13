@@ -27,7 +27,7 @@
 */
 
 /** @file
- * @brief Class @ref Magnum::DartIntegration::Skeleton
+ * @brief Class @ref Magnum::DartIntegration::World
  */
 
 #include <memory>
@@ -45,6 +45,9 @@
 
 namespace Magnum { namespace DartIntegration {
 
+/**
+@experimental
+*/
 class MAGNUM_DARTINTEGRATION_EXPORT World {
     public:
          /**

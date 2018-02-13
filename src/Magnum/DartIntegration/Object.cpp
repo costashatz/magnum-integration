@@ -268,7 +268,7 @@ bool Object::convertShapeNode() {
             Float h = Float(cylinderShape->getHeight());
             Float halfLength = 0.5f * h / r;
 
-            Trade::MeshData3D meshData{Primitives::Cylinder::solid(32, 32, halfLength)};
+            Trade::MeshData3D meshData{Primitives::Cylinder::solid(32, 32, halfLength, Primitives::Cylinder::Flag::CapEnds)};
 
             /* Create the mesh */
             Mesh* mesh = new Mesh{NoCreate};

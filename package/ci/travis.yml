@@ -4,7 +4,9 @@ addons:
   apt:
     packages:
     - libgl1-mesa-dev
-    - g++-4.8 # Dart does not work with 4.7
+    - g++-4.8 # DART does not work with 4.7
+    - ninja-build
+    - lcov
     - libbullet-dev
     - libjpeg-dev
     - libpng12-dev
@@ -18,6 +20,7 @@ addons:
     - liburdfdom-headers-dev
     - libtinyxml-dev
     - libtinyxml2-dev
+    - "libc6:i386" # CMake 2.8.12 is 32bit
 
 matrix:
   include:
@@ -28,6 +31,8 @@ matrix:
     env:
     - JOBID=linux-desktop
     - TARGET=desktop
+    - CMAKE_CXX_FLAGS="--coverage"
+    - LCOV_EXTRA_OPTS="--gcov-tool /usr/bin/gcov-4.8"
   - language: cpp
     os: linux
     dist: trusty
@@ -51,6 +56,7 @@ matrix:
         packages:
         - libgl1-mesa-dev
         - clang-3.8
+        - ninja-build
         - libbullet-dev
         - libjpeg-dev
         - libpng12-dev
@@ -72,6 +78,8 @@ matrix:
     - JOBID=linux-es2
     - TARGET=desktop-gles
     - TARGET_GLES2=ON
+    - CMAKE_CXX_FLAGS="--coverage"
+    - LCOV_EXTRA_OPTS="--gcov-tool /usr/bin/gcov-4.8"
   - language: cpp
     os: linux
     dist: trusty
@@ -80,12 +88,15 @@ matrix:
     - JOBID=linux-es3
     - TARGET=desktop-gles
     - TARGET_GLES2=OFF
+    - CMAKE_CXX_FLAGS="--coverage"
+    - LCOV_EXTRA_OPTS="--gcov-tool /usr/bin/gcov-4.8"
   - language: cpp
     os: osx
     compiler: clang
     env:
     - JOBID=macos-desktop
     - TARGET=desktop
+    - CMAKE_CXX_FLAGS="--coverage"
   #- language: cpp
     #os: osx
     #osx_image: xcode7.3
@@ -114,7 +125,7 @@ matrix:
     - TARGET_GLES2=OFF
   #- language: android
     #os: linux
-    #dist: precise
+    #dist: trusty
     #env:
     #- JOBID=android-es2
     #- TARGET=android
@@ -125,6 +136,8 @@ matrix:
         #- ubuntu-toolchain-r-test
         #packages:
         #- g++-4.7
+        #- ninja-build
+        #- "libc6:i386" # CMake 2.8.12 is 32bit
     #android:
       #components:
       #- build-tools-19.0.0
@@ -132,7 +145,7 @@ matrix:
       #- sys-img-armeabi-v7a-android-19
   #- language: android
     #os: linux
-    #dist: precise
+    #dist: trusty
     #env:
     #- JOBID=android-es3
     #- TARGET=android
@@ -143,6 +156,8 @@ matrix:
         #- ubuntu-toolchain-r-test
         #packages:
         #- g++-4.7
+        #- ninja-build
+        #- "libc6:i386" # CMake 2.8.12 is 32bit
     #android:
       #components:
       #- build-tools-19.0.0
@@ -165,29 +180,30 @@ cache:
 install:
 - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export WITH_DART=OFF; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ]; then export WITH_DART=ON; fi
-- if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TARGET" == "desktop" ] && [ "$BUILD_DEPRECATED" != "OFF" ]; then pip install --user urllib3[secure] && pip install --user cpp-coveralls && export CMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS --coverage"; fi
-
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ ! "$TARGET" == "desktop-sanitizers" ]; then export CXX=g++-4.8; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TARGET" == "desktop-sanitizers" ]; then export CXX=clang++-3.8; fi
 - if [ "$BUILD_DEPRECATED" != "OFF" ]; then export BUILD_DEPRECATED=ON; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ]; then export PLATFORM_GL_API=GLX; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && ( [ "$TARGET" == "desktop" ] || [ "$TARGET" == "desktop-sanitizers" ] ); then export WITH_BULLET=OFF; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TARGET" == "android" ]; then wget -nc http://dl.google.com/android/ndk/android-ndk-r10e-linux-x86_64.bin && chmod +x android-*.bin && ./android-*.bin -y | grep -v Extracting; fi
-# Because Android build has to use 12.04 and CMake 2.8.12 stopped working there
-# since May 2017, I have to manually download a prebuilt version. Also, the
-# PATH setting can't be cached, so it's separate (bit me two times already)
-- if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TARGET" == "android" ] && [ ! -e "$HOME/cmake/bin" ]; then cd $HOME ; wget -nc --no-check-certificate https://cmake.org/files/v2.8/cmake-2.8.12.2-Linux-i386.tar.gz && mkdir -p cmake && cd cmake && tar --strip-components=1 -xzvf ../cmake-2.8.12.2-Linux-i386.tar.gz && cd $TRAVIS_BUILD_DIR ; fi
-- if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TARGET" == "android" ]; then export PATH=$HOME/cmake/bin:$PATH; fi
+# Download CMake 2.8.12 to ensure we're still compatible with it (Travis has
+# 3.9 since December 2017). Also, the PATH setting can't be cached, so it's
+# separate (bit me two times already). ASan doesn't like when 32bit libraries
+# are running, so for it we use the preinstalled CMake.
+- if [ "$TRAVIS_OS_NAME" == "linux" ] && [ ! "$TARGET" == "desktop-sanitizers" ] && [ ! -e "$HOME/cmake/bin" ]; then cd $HOME ; wget -nc --no-check-certificate https://cmake.org/files/v2.8/cmake-2.8.12.2-Linux-i386.tar.gz && mkdir -p cmake && cd cmake && tar --strip-components=1 -xzvf ../cmake-2.8.12.2-Linux-i386.tar.gz && cd $TRAVIS_BUILD_DIR ; fi
+- if [ "$TRAVIS_OS_NAME" == "linux" ] && [ ! "$TARGET" == "desktop-sanitizers" ]; then export PATH=$HOME/cmake/bin:$PATH && cmake --version; fi
+- if [ "$TRAVIS_OS_NAME" == "osx" ]; then HOMEBREW_NO_AUTO_UPDATE=1 brew install ninja; fi
+- if [ "$TRAVIS_OS_NAME" == "osx" ] && [[ "$CMAKE_CXX_FLAGS" == *"--coverage"* ]]; then HOMEBREW_NO_AUTO_UPDATE=1 brew install lcov; fi
 - if [ "$TRAVIS_OS_NAME" == "osx" ] && [ "$TARGET" == "desktop" ]; then export PLATFORM_GL_API=CGL; fi
 - if [ "$TRAVIS_OS_NAME" == "osx" ] && [ "$TARGET" == "ios-simulator" ]; then gem install xcpretty; fi
 - if [ "$TRAVIS_OS_NAME" == "osx" ] && [ "$TARGET" == "emscripten" ]; then brew install emscripten && export LLVM=/usr/local/opt/emscripten/libexec/llvm/bin && emcc; fi
 
 # Bullet
-- if [ "$TRAVIS_OS_NAME" == "osx" ] && [ "$TARGET" == "desktop" ]; then brew install bullet; fi
+- if [ "$TRAVIS_OS_NAME" == "osx" ] && [ "$TARGET" == "desktop" ]; then HOMEBREW_NO_AUTO_UPDATE=1 brew install bullet; fi
 
 # DART and its dependencies
 - if [ "$TRAVIS_OS_NAME" == "linux" ]; then ./package/ci/travis-dependencies.sh; fi
-# TODO: enable on macOS once brew install dartsim/dart/dartsim6 is fixed
+# TODO: enable on macOS once HOMEBREW_NO_AUTO_UPDATE=1 brew install dartsim/dart/dartsim6 is fixed
 
 script:
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && ( [ "$TARGET" == "desktop" ] || [ "$TARGET" == "desktop-sanitizers" ] ); then ./package/ci/travis-desktop.sh; fi
@@ -200,4 +216,9 @@ script:
 - sync
 
 after_success:
-- if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TARGET" == "desktop" ] && [ "$BUILD_DEPRECATED" != "OFF" ]; then coveralls --gcov /usr/bin/gcov-4.8 -i src/ -E ".*/(Test)/.*" --gcov-options '\-lp' > /dev/null; fi
+# Keep in sync with PKBUILD-coverage, please
+- if [[ "$CMAKE_CXX_FLAGS" == *"--coverage"* ]]; then lcov $LCOV_EXTRA_OPTS --directory . --capture --output-file coverage.info > /dev/null; fi
+- if [[ "$CMAKE_CXX_FLAGS" == *"--coverage"* ]]; then lcov $LCOV_EXTRA_OPTS --extract coverage.info "*/src/Magnum*/*" --output-file coverage.info > /dev/null; fi
+- if [[ "$CMAKE_CXX_FLAGS" == *"--coverage"* ]]; then lcov $LCOV_EXTRA_OPTS --remove coverage.info "*/Test/*" --output-file coverage.info > /dev/null; fi
+- if [[ "$CMAKE_CXX_FLAGS" == *"--coverage"* ]]; then lcov $LCOV_EXTRA_OPTS --remove coverage.info "*/build/src/*" --output-file coverage.info > /dev/null; fi
+- if [[ "$CMAKE_CXX_FLAGS" == *"--coverage"* ]]; then bash <(curl -s https://codecov.io/bash) -f coverage.info; fi

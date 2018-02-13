@@ -8,11 +8,13 @@ if [ "$TRAVIS_OS_NAME" == "linux" ] && [ ! -d "$HOME/deps-dart/include" ]; then
     cd libccd-2.0
     mkdir build && cd build
     cmake .. \
+        -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS" \
         -DCMAKE_INSTALL_PREFIX=$HOME/deps-dart \
         -DCMAKE_INSTALL_RPATH=$HOME/deps-dart/lib \
         -DCMAKE_BUILD_TYPE=Debug \
-        -DBUILD_TESTING=OFF
-    make -j install
+        -DBUILD_TESTING=OFF \
+        -G Ninja
+    ninja install
     cd ../..
 
     # fcl
@@ -21,12 +23,14 @@ if [ "$TRAVIS_OS_NAME" == "linux" ] && [ ! -d "$HOME/deps-dart/include" ]; then
     cd fcl-0.5.0
     mkdir build && cd build
     cmake .. \
+        -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS" \
         -DCMAKE_INSTALL_PREFIX=$HOME/deps-dart \
         -DCMAKE_INSTALL_RPATH=$HOME/deps-dart/lib \
         -DCMAKE_BUILD_TYPE=Debug \
-        -DFCL_BUILD_TESTS=OFF
+        -DFCL_BUILD_TESTS=OFF \
+        -G Ninja
     # Otherwise the job gets killed (probably because using too much memory)
-    make -j4 install
+    ninja -j4 install
     cd ../..
 
     # DART
@@ -35,11 +39,13 @@ if [ "$TRAVIS_OS_NAME" == "linux" ] && [ ! -d "$HOME/deps-dart/include" ]; then
     cd dart-6.3.0
     mkdir build && cd build
     cmake .. \
+        -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS" \
         -DCMAKE_INSTALL_PREFIX=$HOME/deps-dart \
         -DCMAKE_INSTALL_RPATH=$HOME/deps-dart/lib \
         -DCMAKE_BUILD_TYPE=Debug \
-        -DDART_BUILD_GUI_OSG=OFF
+        -DDART_BUILD_GUI_OSG=OFF \
+        -G Ninja
     # Otherwise the job gets killed (probably because using too much memory)
-    make -j4 install
+    ninja -j4 install
     cd ../..
 fi

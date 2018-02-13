@@ -6,12 +6,14 @@ git clone --depth 1 git://github.com/mosra/corrade.git
 cd corrade
 mkdir build && cd build
 cmake .. \
+    -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS" \
     -DCMAKE_INSTALL_PREFIX=$HOME/deps \
     -DCMAKE_INSTALL_RPATH=$HOME/deps/lib \
     -DCMAKE_BUILD_TYPE=Debug \
     -DWITH_INTERCONNECT=OFF \
-    -DBUILD_DEPRECATED=$BUILD_DEPRECATED
-make -j install
+    -DBUILD_DEPRECATED=$BUILD_DEPRECATED \
+    -G Ninja
+ninja install
 cd ../..
 
 # Magnum
@@ -19,6 +21,7 @@ git clone --depth 1 git://github.com/mosra/magnum.git
 cd magnum
 mkdir build && cd build
 cmake .. \
+    -DCMAKE_CXX_FLAGS="$CMAKE_CXX_FLAGS" \
     -DCMAKE_INSTALL_PREFIX=$HOME/deps \
     -DCMAKE_INSTALL_RPATH=$HOME/deps/lib \
     -DCMAKE_BUILD_TYPE=Debug \
@@ -33,8 +36,9 @@ cmake .. \
     -DWITH_TEXTURETOOLS=OFF \
     -DWITH_OPENGLTESTER=ON \
     -DWITH_WINDOWLESS${PLATFORM_GL_API}APPLICATION=ON \
-    -DBUILD_DEPRECATED=$BUILD_DEPRECATED
-make -j install
+    -DBUILD_DEPRECATED=$BUILD_DEPRECATED \
+    -G Ninja
+ninja install
 cd ../..
 
 # DartIntegration needs plugins
@@ -49,8 +53,9 @@ if [ "$TRAVIS_OS_NAME" == "linux" ]; then
         -DCMAKE_INSTALL_RPATH=$HOME/deps/lib \
         -DCMAKE_BUILD_TYPE=Debug \
         -DWITH_ASSIMPIMPORTER=ON \
-        -DWITH_STBIMAGEIMPORTER=ON
-    make -j install
+        -DWITH_STBIMAGEIMPORTER=ON \
+        -G Ninja
+    ninja install
     cd ../..
 fi
 
@@ -65,9 +70,10 @@ cmake .. \
     -DWITH_DART=$WITH_DART \
     -DWITH_OVR=OFF \
     -DBUILD_TESTS=ON \
-    -DBUILD_GL_TESTS=ON
+    -DBUILD_GL_TESTS=ON \
+    -G Ninja
 # Otherwise the job gets killed (probably because using too much memory)
-make -j4
+ninja -j4
 
 # DART leaks somewhere deep in std::string, run these tests separately to avoid
 # suppressing too much

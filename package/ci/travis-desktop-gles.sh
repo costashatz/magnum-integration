@@ -36,6 +36,7 @@ cmake .. \
     -DWITH_SHAPES=ON \
     -DWITH_TEXT=OFF \
     -DWITH_TEXTURETOOLS=OFF \
+    -DWITH_OPENGLTESTER=$TARGET_GLES2 \
     -DWITH_WINDOWLESS${PLATFORM_GL_API}APPLICATION=ON \
     -G Ninja
 ninja install
@@ -70,7 +71,7 @@ cmake .. \
     -DWITH_DART=ON \
     -DWITH_OVR=OFF \
     -DBUILD_TESTS=ON \
-    -DBUILD_GL_TESTS=ON \
+    -DBUILD_GL_TESTS=$TARGET_GLES2 \
     -G Ninja
 # Otherwise the job gets killed (probably because using too much memory)
 ninja -j4

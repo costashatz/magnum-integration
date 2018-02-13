@@ -172,7 +172,6 @@ bool Object::convertShapeNode() {
     if(_shapeData && dataVariance == dart::dynamics::Shape::DataVariance::STATIC)
         return true;
 
-    // _shapeData = std::unique_ptr<ShapeData>(new ShapeData{shapeData->mesh, shapeData->vertexBuffer, shapeData->indexBuffer, std::move(shapeData->material), std::move(shapeData->textures)});
     bool firstTime = !_shapeData;
     if(firstTime){
         /* default scaling to (1,1,1) */
@@ -187,8 +186,6 @@ bool Object::convertShapeNode() {
     bool getMesh = firstTime || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_VERTICES)
                              || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_ELEMENTS)
                              || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC);
-    /* update flag for rendering */
-    _updatedMesh = getMaterial || getPrimitive || getMesh;
 
     Trade::PhongMaterialData nodeMaterial{Trade::PhongMaterialData::Flags{}, 80.f};
 
@@ -512,6 +509,9 @@ bool Object::convertShapeNode() {
         Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";
         return false;
     }
+    /* If we got here, everything went OK;
+     * update flag for rendering */
+    _updatedMesh = getMaterial || getPrimitive || getMesh;
 
     return true;
 }

@@ -56,7 +56,7 @@ namespace Magnum { namespace DartIntegration {
 */
 struct ShapeData {
     #ifndef DOXYGEN_GENERATING_OUTPUT
-    explicit ShapeData(Containers::Array<Mesh*> meshes, Containers::Array<Buffer*> vertexBuffers, Containers::Array<Buffer*> indexBuffers, Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials, Containers::Array<Texture2D*> textures): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)} {}
+    explicit ShapeData(Containers::Array<Mesh*> meshes, Containers::Array<Buffer*> vertexBuffers, Containers::Array<Buffer*> indexBuffers, Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials, Containers::Array<Texture2D*> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f}): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)}, scaling(scaling) {}
     #endif
     /** @brief Meshes */
     Containers::Array<Mesh*> meshes;
@@ -72,6 +72,9 @@ struct ShapeData {
 
     /** @brief Textures */
     Containers::Array<Texture2D*> textures;
+
+    /** @brief Scaling */
+    Vector3 scaling;
 };
 
 /**

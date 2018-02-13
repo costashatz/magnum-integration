@@ -175,7 +175,8 @@ bool Object::convertShapeNode() {
     // _shapeData = std::unique_ptr<ShapeData>(new ShapeData{shapeData->mesh, shapeData->vertexBuffer, shapeData->indexBuffer, std::move(shapeData->material), std::move(shapeData->textures)});
     bool firstTime = !_shapeData;
     if(firstTime){
-        _shapeData = std::unique_ptr<ShapeData>(new ShapeData{{}, {}, {}, {}, {}});
+        /* default scaling to (1,1,1) */
+        _shapeData = std::unique_ptr<ShapeData>(new ShapeData{{}, {}, {}, {}, {}, Vector3{1.f, 1.f, 1.f}});
     }
 
     dart::dynamics::ShapeNode& shapeNode = *this->shapeNode();
@@ -214,127 +215,106 @@ bool Object::convertShapeNode() {
         auto boxShape = std::static_pointer_cast<dart::dynamics::BoxShape>(shape);
         Eigen::Vector3d size = boxShape->getSize();
 
-        Trade::MeshData3D meshData{Primitives::Cube::solid()};
-        /* Multiplying by 0.5f because the cube is 2x2x2 */
-        MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(size(0), size(1), size(2))*0.5f), meshData.positions(0));
+        /* Multiplying by 0.5f because the Primitives::Cube is 2x2x2 */
+        _shapeData->scaling = Vector3(size(0), size(1), size(2)) * 0.5f;
 
-        /* Create the mesh */
-        Mesh* mesh = new Mesh{NoCreate};
-        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+        if(firstTime) {
+            Trade::MeshData3D meshData{Primitives::Cube::solid()};
 
-        /* Delete meshes and previous buffers */
-        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-            delete _shapeData->meshes[i];
-            delete _shapeData->vertexBuffers[i];
-            delete _shapeData->indexBuffers[i];
-        }
+            /* Create the mesh */
+            Mesh* mesh = new Mesh{NoCreate};
+            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        if(_shapeData->meshes.size() != 1) {
             _shapeData->meshes = Containers::Array<Mesh*>(1);
             _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
             _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
-        }
 
-        _shapeData->meshes[0] = mesh;
-        _shapeData->vertexBuffers[0] = vertexBuffer.release();
-        _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = mesh;
+            _shapeData->vertexBuffers[0] = vertexBuffer.release();
+            _shapeData->indexBuffers[0] = indexBuffer.release();
+        }
     } else if(getPrimitive && shape->getType() == dart::dynamics::CapsuleShape::getStaticType()) {
         auto capsuleShape = std::static_pointer_cast<dart::dynamics::CapsuleShape>(shape);
 
         Float r = Float(capsuleShape->getRadius());
-        Float h = Float(capsuleShape->getHeight());
-        Float halfLength = 0.5f * h / r;
 
-        Trade::MeshData3D meshData{Primitives::Capsule3D::solid(32, 32, 32, halfLength)};
-        MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{r}), meshData.positions(0));
+        _shapeData->scaling = Vector3{r};
 
-        /* Create the mesh */
-        Mesh* mesh = new Mesh{NoCreate};
-        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+        if(firstTime) {
+            Float h = Float(capsuleShape->getHeight());
+            Float halfLength = 0.5f * h / r;
 
-        /* Delete meshes and previous buffers */
-        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-            delete _shapeData->meshes[i];
-            delete _shapeData->vertexBuffers[i];
-            delete _shapeData->indexBuffers[i];
-        }
+            Trade::MeshData3D meshData{Primitives::Capsule3D::solid(32, 32, 32, halfLength)};
 
-        if(_shapeData->meshes.size() != 1) {
+            /* Create the mesh */
+            Mesh* mesh = new Mesh{NoCreate};
+            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+
             _shapeData->meshes = Containers::Array<Mesh*>(1);
             _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
             _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
-        }
 
-        _shapeData->meshes[0] = mesh;
-        _shapeData->vertexBuffers[0] = vertexBuffer.release();
-        _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = mesh;
+            _shapeData->vertexBuffers[0] = vertexBuffer.release();
+            _shapeData->indexBuffers[0] = indexBuffer.release();
+        }
     } else if(getPrimitive && shape->getType() == dart::dynamics::CylinderShape::getStaticType()) {
         auto cylinderShape = std::static_pointer_cast<dart::dynamics::CylinderShape>(shape);
 
         Float r = Float(cylinderShape->getRadius());
-        Float h = Float(cylinderShape->getHeight());
-        Float halfLength = 0.5f * h / r;
 
-        Trade::MeshData3D meshData{Primitives::Cylinder::solid(32, 32, halfLength)};
-        MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{r}), meshData.positions(0));
+        _shapeData->scaling = Vector3{r};
 
-        /* Create the mesh */
-        Mesh* mesh = new Mesh{NoCreate};
-        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+        if(firstTime) {
+            Float h = Float(cylinderShape->getHeight());
+            Float halfLength = 0.5f * h / r;
 
-        /* Delete meshes and previous buffers */
-        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-            delete _shapeData->meshes[i];
-            delete _shapeData->vertexBuffers[i];
-            delete _shapeData->indexBuffers[i];
-        }
+            Trade::MeshData3D meshData{Primitives::Cylinder::solid(32, 32, halfLength)};
 
-        if(_shapeData->meshes.size() != 1) {
+            /* Create the mesh */
+            Mesh* mesh = new Mesh{NoCreate};
+            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+
             _shapeData->meshes = Containers::Array<Mesh*>(1);
             _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
             _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
-        }
 
-        _shapeData->meshes[0] = mesh;
-        _shapeData->vertexBuffers[0] = vertexBuffer.release();
-        _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = mesh;
+            _shapeData->vertexBuffers[0] = vertexBuffer.release();
+            _shapeData->indexBuffers[0] = indexBuffer.release();
+        }
     } else if(getPrimitive && shape->getType() == dart::dynamics::EllipsoidShape::getStaticType()) {
         auto ellipsoidShape = std::static_pointer_cast<dart::dynamics::EllipsoidShape>(shape);
 
         Eigen::Vector3d size = ellipsoidShape->getDiameters().array() * 0.5;
+        _shapeData->scaling = Vector3(size(0), size(1), size(2));
 
-        Trade::MeshData3D meshData{Primitives::Icosphere::solid(5)};
-        MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(size(0), size(1), size(2))), meshData.positions(0));
+        if(firstTime) {
+            Trade::MeshData3D meshData{Primitives::Icosphere::solid(5)};
 
-        /* Create the mesh */
-        Mesh* mesh = new Mesh{NoCreate};
-        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+            /* Create the mesh */
+            Mesh* mesh = new Mesh{NoCreate};
+            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* Delete meshes and previous buffers */
-        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-            delete _shapeData->meshes[i];
-            delete _shapeData->vertexBuffers[i];
-            delete _shapeData->indexBuffers[i];
-        }
-
-        if(_shapeData->meshes.size() != 1) {
             _shapeData->meshes = Containers::Array<Mesh*>(1);
             _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
             _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
-        }
 
-        _shapeData->meshes[0] = mesh;
-        _shapeData->vertexBuffers[0] = vertexBuffer.release();
-        _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = mesh;
+            _shapeData->vertexBuffers[0] = vertexBuffer.release();
+            _shapeData->indexBuffers[0] = indexBuffer.release();
+        }
     } else if((getPrimitive || getMesh || getMaterial) && shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
         if (!importer)
             return false;
-        /*  @todo check if we should not ignore the transformation in the Mesh */
         auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
+        /* @todo: check if scaling is per mesh */
+        Eigen::Vector3d scale = meshShape->getScale();
+        _shapeData->scaling = Vector3(scale(0), scale(1), scale(2));
 
         const aiScene* aiMesh = meshShape->getMesh();
         std::string meshPath = Utility::Directory::path(meshShape->getMeshPath());
@@ -362,11 +342,6 @@ bool Object::convertShapeNode() {
                 Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(meshData3D->instance());
                 if(!meshData)
                     return false;
-
-                Eigen::Vector3d scale = meshShape->getScale();
-                /* Scale only if scaling vector is different from (1., 1., 1.) */
-                if(((scale.array() - 1.).abs() > 1e-3).any())
-                    MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3(scale(0), scale(1), scale(2))), meshData->positions(0));
 
                 auto colorMode = meshShape->getColorMode();
                 /* only get materials from mesh if the appropriate color mode */
@@ -454,7 +429,7 @@ bool Object::convertShapeNode() {
 
         /* Close any file if opened */
         importer->close();
-    } else if((getPrimitive || getMesh) && shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
+    } else if(getMesh && shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
         /* Soft meshes contain should be drawn without face culling */
         auto meshShape = std::static_pointer_cast<dart::dynamics::SoftMeshShape>(shape);
 
@@ -504,31 +479,24 @@ bool Object::convertShapeNode() {
         auto sphereShape = std::static_pointer_cast<dart::dynamics::SphereShape>(shape);
 
         Float r = Float(sphereShape->getRadius());
+        _shapeData->scaling = Vector3{r};
 
-        Trade::MeshData3D meshData{Primitives::Icosphere::solid(4)};
-        MeshTools::transformPointsInPlace(Matrix4::scaling(Vector3{r, r, r}), meshData.positions(0));
+        if(firstTime) {
+            Trade::MeshData3D meshData{Primitives::Icosphere::solid(4)};
 
-        /* Create the mesh */
-        Mesh* mesh = new Mesh{NoCreate};
-        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+            /* Create the mesh */
+            Mesh* mesh = new Mesh{NoCreate};
+            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        /* Delete meshes and previous buffers */
-        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-            delete _shapeData->meshes[i];
-            delete _shapeData->vertexBuffers[i];
-            delete _shapeData->indexBuffers[i];
-        }
-
-        if(_shapeData->meshes.size() != 1) {
             _shapeData->meshes = Containers::Array<Mesh*>(1);
             _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
             _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
-        }
 
-        _shapeData->meshes[0] = mesh;
-        _shapeData->vertexBuffers[0] = vertexBuffer.release();
-        _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = mesh;
+            _shapeData->vertexBuffers[0] = vertexBuffer.release();
+            _shapeData->indexBuffers[0] = indexBuffer.release();
+        }
     } else if(getMaterial || getPrimitive || getMesh) {
         Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";
         return false;

@@ -1,5 +1,5 @@
 <robot
-  name="KR5sixxR650WP_description">
+  name="texture_urdf">
   <link name="world"/>
   <joint name="arm_to_world_fixed" type="fixed">
     <parent link="world"/>

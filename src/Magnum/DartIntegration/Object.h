@@ -27,7 +27,7 @@
 */
 
 /** @file
- * @brief Class @ref Magnum::DartIntegration::Object, Class @ref Magnum::DartIntegration::ShapeData
+ * @brief Class @ref Magnum::DartIntegration::Object, Class @ref Magnum::DartIntegration::DrawData
  */
 
 #include <memory>
@@ -49,6 +49,10 @@ namespace dart { namespace dynamics {
     class ShapeNode;
 }}
 
+namespace Magnum { namespace Trade{
+class AbstractImporter;
+}}
+
 namespace Magnum { namespace DartIntegration {
 
 /**
@@ -56,12 +60,12 @@ namespace Magnum { namespace DartIntegration {
 
 @see @ref Object::convertShapeNode()
 */
-struct ShapeData {
+struct DrawData {
     #ifndef DOXYGEN_GENERATING_OUTPUT
-    explicit ShapeData(Containers::Array<Containers::Optional<Mesh>> meshes, Containers::Array<Buffer> vertexBuffers, Containers::Array<Containers::Optional<Buffer>> indexBuffers, Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials, Containers::Array<Containers::Optional<Texture2D>> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f}): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)}, scaling(scaling) {}
+    explicit DrawData(Containers::Array<Mesh> meshes, Containers::Array<Buffer> vertexBuffers, Containers::Array<Containers::Optional<Buffer>> indexBuffers, Containers::Array<Trade::PhongMaterialData> materials, Containers::Array<Containers::Optional<Texture2D>> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f}): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)}, scaling(scaling) {}
     #endif
     /** @brief Meshes */
-    Containers::Array<Containers::Optional<Mesh>> meshes;
+    Containers::Array<Mesh> meshes;
 
     /** @brief vertex Buffers */
     Containers::Array<Buffer> vertexBuffers;
@@ -70,7 +74,7 @@ struct ShapeData {
     Containers::Array<Containers::Optional<Buffer>> indexBuffers;
 
     /** @brief Material data */
-    Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials;
+    Containers::Array<Trade::PhongMaterialData> materials;
 
     /** @brief Textures */
     Containers::Array<Containers::Optional<Texture2D>> textures;
@@ -107,26 +111,6 @@ Only the DART body/node can affect the transformation of the Magnum object and
 not the other way around. To get the latest DART transformation, you should
 update the object with @ref update().
 
-Convert `ShapeNode` to mesh and material data
-
-Returns false if the shape of given `ShapeNode` is
-not supported. The following DART shapes are supported:
-
--   `BoxShape`
--   `CapsuleShape`
--   `CylinderShape`
--   `EllipsoidShape`
--   `MeshShape`
--   `SoftMeshShape`
--   `SphereShape`
-
-The following DART shapes are not yet supported:
-
--   `ConeShape`
--   `LineSegmentShape`
--   `MultiSphereConvexHullShape`
--   `PlaneShape` (this is an infinite plane with normal)
-
 @experimental
 */
 class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeature3D<Float> {
@@ -146,7 +130,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         template<class T> Object(T& object, dart::dynamics::BodyNode* body = nullptr): Object{object, object, nullptr, body} {}
 
         /** @brief Get transformation from DART */
-        Object& update();
+        Object& update(Trade::AbstractImporter* importer = nullptr);
 
         /** @brief Get whether Object was updated */
         bool isUpdated() { return _updated; }
@@ -160,8 +144,8 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         /** @brief Get whether Object's mesh was updated */
         bool hasUpdatedMesh() { return _updatedMesh; }
 
-        /** @brief Get ShapeData */
-        ShapeData& shapeData();
+        /** @brief Get DrawData */
+        DrawData& drawData();
 
         /** @brief Underlying DART `ShapeNode` */
         dart::dynamics::ShapeNode* shapeNode() { return _node; }
@@ -172,12 +156,12 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
     private:
         explicit Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body);
 
-        bool convertShapeNode();
+        bool extractDrawData(Trade::AbstractImporter* importer = nullptr);
 
         SceneGraph::AbstractBasicTranslationRotation3D<Float>& _transformation;
         dart::dynamics::ShapeNode* _node;
         dart::dynamics::BodyNode* _body;
-        std::unique_ptr<ShapeData> _shapeData;
+        std::unique_ptr<DrawData> _drawData;
         bool _updated, _updatedMesh;
 };
 

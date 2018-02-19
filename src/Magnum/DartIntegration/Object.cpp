@@ -24,18 +24,13 @@
     DEALINGS IN THE SOFTWARE.
 */
 
+#include "ConvertShapeNode.h"
 #include "Object.h"
 
 #include <dart/dynamics/BodyNode.hpp>
-#include <dart/dynamics/BoxShape.hpp>
-#include <dart/dynamics/CapsuleShape.hpp>
-#include <dart/dynamics/CylinderShape.hpp>
-#include <dart/dynamics/EllipsoidShape.hpp>
 #include <dart/dynamics/MeshShape.hpp>
 #include <dart/dynamics/ShapeNode.hpp>
-#include <dart/dynamics/SoftBodyNode.hpp>
 #include <dart/dynamics/SoftMeshShape.hpp>
-#include <dart/dynamics/SphereShape.hpp>
 
 #include <Corrade/PluginManager/Manager.h>
 #include <Corrade/Utility/Directory.h>
@@ -43,63 +38,24 @@
 #include <Magnum/PixelFormat.h>
 #include <Magnum/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
-#include <Magnum/MeshTools/Transform.h>
-#include <Magnum/Primitives/Capsule.h>
-#include <Magnum/Primitives/Cube.h>
-#include <Magnum/Primitives/Cylinder.h>
-#include <Magnum/Primitives/Icosphere.h>
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/ImageData.h>
 #include <Magnum/Trade/MeshData3D.h>
-#include <Magnum/Trade/MeshObjectData3D.h>
-#include <Magnum/Trade/ObjectData3D.h>
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Trade/TextureData.h>
-
-static Eigen::Vector3d normalFromVertex(const dart::dynamics::SoftBodyNode* bn,
-                                        const Eigen::Vector3i& face,
-                                        std::size_t v)
-{
-  const Eigen::Vector3d& v0 = bn->getPointMass(face[v])->getLocalPosition();
-  const Eigen::Vector3d& v1 = bn->getPointMass(face[(v+1)%3])->getLocalPosition();
-  const Eigen::Vector3d& v2 = bn->getPointMass(face[(v+2)%3])->getLocalPosition();
-
-  const Eigen::Vector3d dv1 = v1-v0;
-  const Eigen::Vector3d dv2 = v2-v0;
-  const Eigen::Vector3d n = dv1.cross(dv2);
-
-  double weight = n.norm()/(dv1.norm()*dv2.norm());
-  weight = std::max( -1.0, std::min( 1.0, weight) );
-
-  return n.normalized() * asin(weight);
-}
-
-static void computeNormals(std::vector<Eigen::Vector3d>& normals,
-                           const dart::dynamics::SoftBodyNode* bn)
-{
-  for(std::size_t i=0; i<normals.size(); ++i)
-    normals[i] = Eigen::Vector3d::Zero();
-
-  for(std::size_t i=0; i<bn->getNumFaces(); ++i)
-  {
-    const Eigen::Vector3i& face = bn->getFace(i);
-    for(std::size_t j=0; j<3; ++j)
-      normals[face[j]] += normalFromVertex(bn, face, j);
-  }
-
-  for(std::size_t i=0; i<normals.size(); ++i)
-    normals[i].normalize();
-}
 
 
 namespace Magnum { namespace DartIntegration {
 
 Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _updated(false), _updatedMesh(false) {}
 
-Object& Object::update() {
-    if(_node)
-        convertShapeNode();
-    _updated = true;
+Object& Object::update(Trade::AbstractImporter* importer) {
+    /* If the object is has a shape and could not extract the DrawData,
+     * do not update it; i.e., the user can choose to delete it
+     */
+    if(_node && !extractDrawData(importer))
+        return *this;
+
     /* Get transform from DART */
     const Eigen::Isometry3d* trans;
     if(!_node)
@@ -129,19 +85,18 @@ Object& Object::update() {
         .rotate(theta, u)
         .translate(t);
 
+    /* Set update flag */
+    _updated = true;
+
     return *this;
 }
 
-ShapeData& Object::shapeData() {
-    return *_shapeData;
+DrawData& Object::drawData() {
+    return *_drawData;
 }
 
-bool Object::convertShapeNode() {
+bool Object::extractDrawData(Trade::AbstractImporter* importer) {
     _updatedMesh = false;
-    /* We want to load AssimpImporter only once */
-    /* @todo: check if we want to put it only in the MeshShape case */
-    static PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
-    static std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
 
     /* This is not a valid object */
     if(!_node && !_body)
@@ -152,331 +107,102 @@ bool Object::convertShapeNode() {
 
     unsigned int dataVariance = _node->getShape()->getDataVariance();
 
-    if(_shapeData && dataVariance == dart::dynamics::Shape::DataVariance::STATIC)
+    if(_drawData && dataVariance == dart::dynamics::Shape::DataVariance::STATIC)
         return true;
 
-    bool firstTime = !_shapeData;
-    if(firstTime){
-        /* default scaling to (1,1,1) */
-        _shapeData = std::unique_ptr<ShapeData>(new ShapeData{{}, {}, {}, {}, {}, Vector3{1.f, 1.f, 1.f}});
-    }
+    bool firstTime = !_drawData;
 
     dart::dynamics::ShapeNode& shapeNode = *this->shapeNode();
     dart::dynamics::ShapePtr shape = shapeNode.getShape();
 
-    bool getMaterial = firstTime || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_COLOR);
-    bool getPrimitive = firstTime || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_PRIMITIVE);
-    bool getMesh = firstTime || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_VERTICES)
-                             || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_ELEMENTS)
-                             || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC);
+    bool getMaterial = shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_COLOR);
+    bool getPrimitive = shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_PRIMITIVE);
+    bool getMesh = shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_VERTICES)
+                    || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_ELEMENTS)
+                    || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC);
 
-    Trade::PhongMaterialData nodeMaterial{Trade::PhongMaterialData::Flags{}, 80.f};
+    ShapeLoadTypes loadType;
+    if(firstTime)
+        loadType |= ShapeLoadType::All;
+    if(getMaterial)
+        loadType |= ShapeLoadType::Material;
+    if(getPrimitive)
+        loadType |= ShapeLoadType::Primitive;
+    if(getMesh)
+        loadType |= ShapeLoadType::Mesh;
+
+    /* if first time we need to get everything */
+    getMaterial = firstTime || getMaterial;
+    getPrimitive = firstTime || getPrimitive;
+    getMesh = firstTime || getMesh;
+
+    Containers::Optional<ShapeData> shapeData = convertShapeNode(shapeNode, loadType, importer);
+
+    /* could not convertShapeNode to ShapeData */
+    if(!shapeData)
+        return false;
+
+    /* create the DrawData structure */
+    if(firstTime){
+        /* default scaling to (1,1,1) */
+        _drawData = std::unique_ptr<DrawData>(new DrawData{{}, {}, {}, {}, {}, Vector3{1.f, 1.f, 1.f}});
+    }
 
     if(getMaterial) {
-        /* Get material information -- we ignore the alpha value
-        Note that this material is not necessarily used for the MeshShapeNodes */
-        Eigen::Vector4d col = shapeNode.getVisualAspect()->getRGBA();
-        /* @to-do: Create Trade Material Data that includes alpha channel */
+        /* copy material data */
+        _drawData->materials = std::move(shapeData->materials);
 
-        /* get diffuse color from Dart ShapeNode */
-        nodeMaterial.diffuseColor() = Color3(col(0), col(1), col(2));
-        /* default colors for ambient (black) and specular (white) */
-        nodeMaterial.ambientColor() = Vector3{0.f, 0.f, 0.f};
-        nodeMaterial.specularColor() = Vector3{1.f, 1.f, 1.f};
+        /* create textures, if needed */
+        if (shapeData->textures.size() > 0) {
+            _drawData->textures = Containers::Array<Containers::Optional<Texture2D>>(shapeData->textures.size());
+        }
+        for(UnsignedInt i = 0; i < shapeData->textures.size(); i++) {
+            auto textureData = std::move(shapeData->textures[i]);
+            auto imageData = std::move(shapeData->images[i]);
+            /* this is to preserve indexing for materials */
+            if(!textureData || !imageData)
+                continue;
+            Texture2D texture;
+            texture.setMagnificationFilter(textureData->magnificationFilter())
+                .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
+                .setWrapping(textureData->wrapping().xy())
+                .setStorage(1, TextureFormat::RGB8, imageData->size())
+                .setSubImage(0, {}, *imageData)
+                .generateMipmap();
 
-        if(shape->getType() != dart::dynamics::MeshShape::getStaticType()) {
-            if(_shapeData->materials.size() != 1)
-                _shapeData->materials = Containers::Array<Containers::Optional<Trade::PhongMaterialData>>(1);
-            _shapeData->materials[0] = std::move(nodeMaterial);
+            _drawData->textures[i] = std::move(texture);
         }
     }
 
-    if(getPrimitive && shape->getType() == dart::dynamics::BoxShape::getStaticType()) {
-        auto boxShape = std::static_pointer_cast<dart::dynamics::BoxShape>(shape);
-        Eigen::Vector3d size = boxShape->getSize();
-
-        /* Multiplying by 0.5f because the Primitives::Cube is 2x2x2 */
-        _shapeData->scaling = Vector3(size(0), size(1), size(2)) * 0.5f;
-
-        if(firstTime) {
-            Trade::MeshData3D meshData{Primitives::Cube::solid()};
-
-            /* Create the mesh */
-            Containers::Optional<Mesh> mesh;
-            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
-
-            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
-            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
-
-            _shapeData->meshes[0] = std::move(mesh);
-            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
-            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
-        }
-    } else if(getPrimitive && shape->getType() == dart::dynamics::CapsuleShape::getStaticType()) {
-        auto capsuleShape = std::static_pointer_cast<dart::dynamics::CapsuleShape>(shape);
-
-        Float r = Float(capsuleShape->getRadius());
-
-        _shapeData->scaling = Vector3{r};
-
-        if(firstTime) {
-            Float h = Float(capsuleShape->getHeight());
-            Float halfLength = 0.5f * h / r;
-
-            Trade::MeshData3D meshData{Primitives::Capsule3D::solid(32, 32, 32, halfLength)};
-
-            /* Create the mesh */
-            Containers::Optional<Mesh> mesh;
-            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
-
-            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
-            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
-
-            _shapeData->meshes[0] = std::move(mesh);
-            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
-            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
-        }
-    } else if(getPrimitive && shape->getType() == dart::dynamics::CylinderShape::getStaticType()) {
-        auto cylinderShape = std::static_pointer_cast<dart::dynamics::CylinderShape>(shape);
-
-        Float r = Float(cylinderShape->getRadius());
-
-        _shapeData->scaling = Vector3{r};
-
-        if(firstTime) {
-            Float h = Float(cylinderShape->getHeight());
-            Float halfLength = 0.5f * h / r;
-
-            Trade::MeshData3D meshData{Primitives::Cylinder::solid(32, 32, halfLength, Primitives::Cylinder::Flag::CapEnds)};
-
-            /* Create the mesh */
-            Containers::Optional<Mesh> mesh;
-            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
-
-            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
-            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
-
-            _shapeData->meshes[0] = std::move(mesh);
-            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
-            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
-        }
-    } else if(getPrimitive && shape->getType() == dart::dynamics::EllipsoidShape::getStaticType()) {
-        auto ellipsoidShape = std::static_pointer_cast<dart::dynamics::EllipsoidShape>(shape);
-
-        Eigen::Vector3d size = ellipsoidShape->getDiameters().array() * 0.5;
-        _shapeData->scaling = Vector3(size(0), size(1), size(2));
-
-        if(firstTime) {
-            Trade::MeshData3D meshData{Primitives::Icosphere::solid(5)};
-
-            /* Create the mesh */
-            Containers::Optional<Mesh> mesh;
-            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
-
-            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
-            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
-
-            _shapeData->meshes[0] = std::move(mesh);
-            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
-            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
-        }
-    } else if((getPrimitive || getMesh || getMaterial) && shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
-        if (!importer)
-            return false;
-        auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
-
-        if(getPrimitive) {
-            /* @todo: check if scaling can be per mesh */
-            Eigen::Vector3d scale = meshShape->getScale();
-            _shapeData->scaling = Vector3(scale(0), scale(1), scale(2));
+    /* get meshes and/or scaling */
+    if(getPrimitive || getMesh) {
+        if (getPrimitive) {
+            /* get scaling */
+            _drawData->scaling = shapeData->scaling;
         }
 
-        const aiScene* aiMesh = meshShape->getMesh();
-        std::string meshPath = Utility::Directory::path(meshShape->getMeshPath());
+        /* if needed, create the meshes */
+        bool createMeshes = firstTime || (getMesh && (shape->getType() == dart::dynamics::MeshShape::getStaticType() || shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()));
+        if (createMeshes) {
+            _drawData->meshes = Containers::Array<Mesh>(Containers::NoInit, shapeData->meshes.size());
+            _drawData->vertexBuffers = Containers::Array<Buffer>(shapeData->meshes.size());
+            _drawData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(shapeData->meshes.size());
 
-        bool loaded = importer->openState(aiMesh, meshPath);
-        if(!loaded || importer->mesh3DCount() < 1)
-            return false;
+            for(UnsignedInt i = 0; i < shapeData->meshes.size(); i++) {
+                Trade::MeshData3D meshData = std::move(shapeData->meshes[i]);
+                /* Create the mesh */
+                Containers::Optional<Mesh> mesh;
+                std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+                std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-        UnsignedInt meshesCount = 0;
-        for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {
-            auto meshData3D = dynamic_cast<Trade::MeshObjectData3D*>(importer->object3D(i).release());
-            if(meshData3D)
-                meshesCount++;
-        }
-
-        Containers::Array<Containers::Optional<Mesh>> meshes(meshesCount);
-        Containers::Array<Buffer> vertexBuffers(meshesCount);
-        Containers::Array<Containers::Optional<Buffer>> indexBuffers(meshesCount);
-        Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials(meshesCount);
-
-        UnsignedInt j = 0;
-        for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {
-            auto meshData3D = dynamic_cast<Trade::MeshObjectData3D*>(importer->object3D(i).release());
-            if(meshData3D) {
-                Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(meshData3D->instance());
-                if(!meshData)
-                    return false;
-
-                if(getMaterial) {
-                    auto colorMode = meshShape->getColorMode();
-                    /* only get materials from mesh if the appropriate color mode */
-                    if(importer->materialCount() && getMaterial) {
-                        if(colorMode == dart::dynamics::MeshShape::ColorMode::MATERIAL_COLOR) {
-                            auto matPtr = importer->material(meshData3D->material());
-                            materials[j] = std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()));
-                        }
-                        else if(colorMode == dart::dynamics::MeshShape::ColorMode::COLOR_INDEX) {
-                            /* @todo: check if index is within bounds */
-                            /* get diffuse color from Mesh color */
-                            Color4 meshColor = meshData->colors(0)[meshShape->getColorIndex()];
-                            materials[j] = Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
-                            materials[j]->diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
-                            /* default colors for ambient (black) and specular (white) */
-                            materials[j]->ambientColor() = Vector3{0.f, 0.f, 0.f};
-                            materials[j]->specularColor() = Vector3{1.f, 1.f, 1.f};
-                        }
-                        else if (colorMode == dart::dynamics::MeshShape::ColorMode::SHAPE_COLOR) {
-                            materials[j] = std::move(nodeMaterial);
-                        }
-                    }
-                }
-
-                if(getMesh) {
-                    /* Create the mesh */
-                    Containers::Optional<Mesh> mesh;
-                    std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-                    std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::StaticDraw);
-
-                    meshes[j] = std::move(mesh);
-                    vertexBuffers[j] = std::move(*vertexBuffer.release());
-                    if(indexBuffer)
-                        indexBuffers[j] = std::move(*indexBuffer.release());
-                }
-
-                j++;
+                new(&_drawData->meshes[i]) Mesh{std::move(*mesh)};
+                _drawData->vertexBuffers[i] = std::move(*vertexBuffer.release());
+                if(indexBuffer)
+                    _drawData->indexBuffers[i] = std::move(*indexBuffer.release());
             }
         }
-
-        Containers::Array<Containers::Optional<Texture2D>> textures(importer->textureCount());
-
-        if(getMaterial) {
-            for(UnsignedInt i = 0; i < importer->textureCount(); ++i) {
-                /* Cannot load, leave this element set to NullOpt */
-                Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
-                if (!textureData || textureData->type() != Trade::TextureData::Type::Texture2D) {
-                    Warning{} << "Cannot load texture, skipping";
-                    continue;
-                }
-
-                /* Cannot load, leave this element set to NullOpt */
-                Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image());
-                if (!imageData) {
-                    Warning{} << "Cannot load texture image, skipping";
-                    continue;
-                }
-
-                Texture2D texture;
-                texture.setMagnificationFilter(textureData->magnificationFilter())
-                    .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
-                    .setWrapping(textureData->wrapping().xy())
-                    .setStorage(1, TextureFormat::RGB8, imageData->size())
-                    .setSubImage(0, {}, *imageData)
-                    .generateMipmap();
-
-                textures[i] = std::move(texture);
-            }
-        }
-
-        if(getMesh) {
-            _shapeData->meshes = std::move(meshes);
-            _shapeData->vertexBuffers = std::move(vertexBuffers);
-            _shapeData->indexBuffers = std::move(indexBuffers);
-        }
-
-        if(getMaterial) {
-            _shapeData->materials = std::move(materials);
-            _shapeData->textures = std::move(textures);
-        }
-
-        /* Close any file if opened */
-        importer->close();
-    } else if(getMesh && shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
-        /* Soft meshes contain should be drawn without face culling */
-        auto meshShape = std::static_pointer_cast<dart::dynamics::SoftMeshShape>(shape);
-
-        const dart::dynamics::SoftBodyNode* bn = meshShape->getSoftBodyNode();
-
-        std::vector<Eigen::Vector3d> eigNormals(bn->getNumPointMasses());
-        computeNormals(eigNormals, bn);
-
-        std::vector<std::vector<Vector3>> positions, normals;
-        positions.push_back(std::vector<Vector3>());
-        normals.push_back(std::vector<Vector3>());
-
-        for(UnsignedInt i = 0; i < bn->getNumFaces(); ++i) {
-            const Eigen::Vector3i& F = bn->getFace(i);
-            for(UnsignedInt j = 0; j < 3; ++j) {
-                const Eigen::Vector3d& pos = bn->getPointMass(F[j])->getLocalPosition();
-                positions[0].push_back(Vector3(pos(0), pos(1), pos(2)));
-                const Eigen::Vector3d& norm = eigNormals[F[j]];
-                normals[0].push_back(Vector3(norm(0), norm(1), norm(2)));
-            }
-        }
-
-        Trade::MeshData3D meshData{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), positions, normals, std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
-
-        /* Create the Magnum Mesh */
-        Containers::Optional<Mesh> mesh;
-        std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
-
-        if(_shapeData->meshes.size() != 1) {
-            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
-            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
-        }
-
-        _shapeData->meshes[0] = std::move(mesh);
-        _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
-        /* This is not needed as indexBuffer is always null */
-        /* if(indexBuffer)
-         *  _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
-         */
-    } else if(getPrimitive && shape->getType() == dart::dynamics::SphereShape::getStaticType()) {
-        auto sphereShape = std::static_pointer_cast<dart::dynamics::SphereShape>(shape);
-
-        Float r = Float(sphereShape->getRadius());
-        _shapeData->scaling = Vector3{r};
-
-        if(firstTime) {
-            Trade::MeshData3D meshData{Primitives::Icosphere::solid(4)};
-
-            /* Create the mesh */
-            Containers::Optional<Mesh> mesh;
-            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
-
-            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
-            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
-
-            _shapeData->meshes[0] = std::move(mesh);
-            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
-            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
-        }
-    } else if(firstTime) {
-        Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";
-        return false;
     }
+
     /* If we got here, everything went OK;
      * update flag for rendering */
     _updatedMesh = getMaterial || getPrimitive || getMesh;

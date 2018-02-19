@@ -46,6 +46,7 @@
 #include <Magnum/SceneGraph/SceneGraph.h>
 #include <Magnum/Trade/PhongMaterialData.h>
 
+#include "Magnum/DartIntegration/ConvertShapeNode.h"
 #include "Magnum/DartIntegration/World.h"
 #include "Magnum/DartIntegration/Test/configure.h"
 
@@ -331,7 +332,7 @@ void DartIntegrationTest::urdf() {
     for(auto& dartObj: dartWorld->shapeObjects()) {
         auto shape = dartObj->shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
-        ShapeData& mydata = dartObj->shapeData();
+        DrawData& mydata = dartObj->drawData();
         CORRADE_VERIFY(mydata.meshes.size());
         CORRADE_VERIFY(mydata.vertexBuffers.size());
         CORRADE_VERIFY(mydata.indexBuffers.size());
@@ -341,7 +342,7 @@ void DartIntegrationTest::urdf() {
         {
             CORRADE_EXPECT_FAIL_IF(assimpVersion < 302,
                 "Old versions of Assimp do not load the material correctly");
-            CORRADE_COMPARE(mydata.materials[0]->diffuseColor(), (Vector3{0.6f, 0.6f, 0.6f}));
+            CORRADE_COMPARE(mydata.materials[0].diffuseColor(), (Vector3{0.6f, 0.6f, 0.6f}));
         }
         CORRADE_COMPARE(mydata.textures.size(), 0);
     }
@@ -380,7 +381,7 @@ void DartIntegrationTest::multiMesh() {
 
     auto shape = dartObj->shapeNode()->getShape();
     CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
-    ShapeData& mydata = dartObj->shapeData();
+    DrawData& mydata = dartObj->drawData();
     CORRADE_COMPARE(mydata.meshes.size(), 2);
     CORRADE_COMPARE(mydata.meshes.size(), mydata.vertexBuffers.size());
     CORRADE_COMPARE(mydata.meshes.size(), mydata.indexBuffers.size());
@@ -424,7 +425,7 @@ void DartIntegrationTest::texture() {
     for(auto& dartObj: dartWorld->shapeObjects()) {
         auto shape = dartObj->shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
-        ShapeData& mydata = dartObj->shapeData();
+        DrawData& mydata = dartObj->drawData();
         CORRADE_VERIFY(mydata.meshes.size());
         CORRADE_VERIFY(mydata.vertexBuffers.size());
         CORRADE_VERIFY(mydata.indexBuffers.size());

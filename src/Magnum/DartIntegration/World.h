@@ -38,8 +38,11 @@
 #include <dart/dynamics/ShapeNode.hpp>
 #include <dart/simulation/World.hpp>
 
+#include <Corrade/PluginManager/Manager.h>
+
 #include <Magnum/SceneGraph/AbstractFeature.h>
 #include <Magnum/SceneGraph/AbstractObject.h>
+#include <Magnum/Trade/AbstractImporter.h>
 
 #include "Magnum/DartIntegration/Object.h"
 
@@ -112,7 +115,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
          * @param object    Parent object
          * @param skeleton  DART World shared pointer to parse
          */
-        template<class T> explicit World(T& object, std::shared_ptr<dart::simulation::World> world): _object(object), _dartWorld(world) {
+        template<class T> explicit World(T& object, std::shared_ptr<dart::simulation::World> world): _object(object), _manager{MAGNUM_PLUGINS_IMPORTER_DIR}, _dartWorld(world) {
             objectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent) -> SceneGraph::AbstractBasicObject3D<Float>* {
                 return new T{static_cast<T*>(&parent)};
             };
@@ -180,6 +183,8 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         template <class T> void parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn);
 
         SceneGraph::AbstractBasicObject3D<Float>& _object;
+        PluginManager::Manager<Trade::AbstractImporter> _manager;
+        std::unique_ptr<Trade::AbstractImporter> _importer;
         std::shared_ptr<dart::simulation::World> _dartWorld;
         std::unordered_map<dart::dynamics::Frame*, std::shared_ptr<Object>> _dartToMagnum;
         std::vector<std::shared_ptr<Object>> _toRemove;
@@ -215,7 +220,7 @@ template <class T> void World::parseBodyNodeRecursive(T& parent, dart::dynamics:
             auto shapeObj = objectCreator(*object);
             it.first->second = dartShapeObjectCreator(*shapeObj, shape);
         }
-        it.first->second->update();
+        it.first->second->update(_importer.get());
         if(it.first->second->hasUpdatedMesh())
             _updatedShapeObjects.insert(it.first->second);
     }

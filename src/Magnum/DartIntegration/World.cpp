@@ -33,6 +33,10 @@ namespace Magnum { namespace DartIntegration {
         for(auto& obj : _dartToMagnum)
             obj.second->clearUpdateFlag();
 
+        /* load Assimp importer if needed */
+        if (!_importer)
+            _importer = _manager.loadAndInstantiate("AssimpImporter");
+
         for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
             parseSkeleton(_object, *_dartWorld->getSkeleton(i));
         }
@@ -63,7 +67,7 @@ namespace Magnum { namespace DartIntegration {
         for(dart::dynamics::Frame* frame : unusedFrames)
         {
             auto it = _dartToMagnum.find(frame);
-            _toRemove.push_back(it->second);
+            _toRemove.emplace_back(it->second);
             /* @todo: Manage removal from scene */
             _dartToMagnum.erase(it);
         }

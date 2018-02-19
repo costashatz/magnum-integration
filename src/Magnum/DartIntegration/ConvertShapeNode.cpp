@@ -182,8 +182,10 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         std::string meshPath = Utility::Directory::path(meshShape->getMeshPath());
 
         bool loaded = importer->openState(aiMesh, meshPath);
-        if(!loaded || importer->mesh3DCount() < 1)
+        if(!loaded || importer->mesh3DCount() < 1) {
+            Debug {} << "Could not load multi mesh!";
             return Containers::NullOpt;
+        }
 
         UnsignedInt meshesCount = 0;
         for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {

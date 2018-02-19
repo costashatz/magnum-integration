@@ -226,10 +226,16 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                         }
                     }
                 }
+                /* fallback material to by-pass seg-faults */
+                else
+                    new(&materials[j]) Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
 
                 if(getMesh) {
                     new(&meshes[j]) Trade::MeshData3D{std::move(*meshData)};
                 }
+                /* fallback mesh data to by-pass seg-faults */
+                else
+                    new(&meshes[j]) Trade::MeshData3D{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), std::vector<std::vector<Vector3>>(1, std::vector<Vector3>()), std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
 
                 j++;
             }

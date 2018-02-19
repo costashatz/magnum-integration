@@ -319,7 +319,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         return Containers::NullOpt;
     }
 
-    return shapeData;
+    return std::move(shapeData);
 }
 
 }}

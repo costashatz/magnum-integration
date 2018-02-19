@@ -40,10 +40,7 @@
 #include <Corrade/PluginManager/Manager.h>
 #include <Corrade/Utility/Directory.h>
 
-#include <Magnum/Buffer.h>
-#include <Magnum/Mesh.h>
 #include <Magnum/PixelFormat.h>
-#include <Magnum/Texture.h>
 #include <Magnum/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
 #include <Magnum/MeshTools/Transform.h>
@@ -97,12 +94,12 @@ static void computeNormals(std::vector<Eigen::Vector3d>& normals,
 
 namespace Magnum { namespace DartIntegration {
 
-Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _used(false), _updatedMesh(false) {}
+Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _updated(false), _updatedMesh(false) {}
 
 Object& Object::update() {
     if(_node)
         convertShapeNode();
-    _used = true;
+    _updated = true;
     /* Get transform from DART */
     const Eigen::Isometry3d* trans;
     if(!_node)
@@ -135,22 +132,8 @@ Object& Object::update() {
     return *this;
 }
 
-bool Object::used() {
-    return _used;
-}
-
-Object& Object::clearUsed() {
-    _used = false;
-
-    return *this;
-}
-
-bool Object::updatedMesh() {
-    return _updatedMesh;
-}
-
-std::reference_wrapper<ShapeData> Object::shapeData() {
-    return std::ref(*_shapeData);
+ShapeData& Object::shapeData() {
+    return *_shapeData;
 }
 
 bool Object::convertShapeNode() {
@@ -219,17 +202,17 @@ bool Object::convertShapeNode() {
             Trade::MeshData3D meshData{Primitives::Cube::solid()};
 
             /* Create the mesh */
-            Mesh* mesh = new Mesh{NoCreate};
+            Containers::Optional<Mesh> mesh;
             std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-            _shapeData->meshes = Containers::Array<Mesh*>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
-            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
+            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
 
-            _shapeData->meshes[0] = mesh;
-            _shapeData->vertexBuffers[0] = vertexBuffer.release();
-            _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = std::move(mesh);
+            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
+            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
         }
     } else if(getPrimitive && shape->getType() == dart::dynamics::CapsuleShape::getStaticType()) {
         auto capsuleShape = std::static_pointer_cast<dart::dynamics::CapsuleShape>(shape);
@@ -245,17 +228,17 @@ bool Object::convertShapeNode() {
             Trade::MeshData3D meshData{Primitives::Capsule3D::solid(32, 32, 32, halfLength)};
 
             /* Create the mesh */
-            Mesh* mesh = new Mesh{NoCreate};
+            Containers::Optional<Mesh> mesh;
             std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-            _shapeData->meshes = Containers::Array<Mesh*>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
-            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
+            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
 
-            _shapeData->meshes[0] = mesh;
-            _shapeData->vertexBuffers[0] = vertexBuffer.release();
-            _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = std::move(mesh);
+            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
+            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
         }
     } else if(getPrimitive && shape->getType() == dart::dynamics::CylinderShape::getStaticType()) {
         auto cylinderShape = std::static_pointer_cast<dart::dynamics::CylinderShape>(shape);
@@ -271,17 +254,17 @@ bool Object::convertShapeNode() {
             Trade::MeshData3D meshData{Primitives::Cylinder::solid(32, 32, halfLength, Primitives::Cylinder::Flag::CapEnds)};
 
             /* Create the mesh */
-            Mesh* mesh = new Mesh{NoCreate};
+            Containers::Optional<Mesh> mesh;
             std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-            _shapeData->meshes = Containers::Array<Mesh*>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
-            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
+            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
 
-            _shapeData->meshes[0] = mesh;
-            _shapeData->vertexBuffers[0] = vertexBuffer.release();
-            _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = std::move(mesh);
+            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
+            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
         }
     } else if(getPrimitive && shape->getType() == dart::dynamics::EllipsoidShape::getStaticType()) {
         auto ellipsoidShape = std::static_pointer_cast<dart::dynamics::EllipsoidShape>(shape);
@@ -293,17 +276,17 @@ bool Object::convertShapeNode() {
             Trade::MeshData3D meshData{Primitives::Icosphere::solid(5)};
 
             /* Create the mesh */
-            Mesh* mesh = new Mesh{NoCreate};
+            Containers::Optional<Mesh> mesh;
             std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-            _shapeData->meshes = Containers::Array<Mesh*>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
-            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
+            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
 
-            _shapeData->meshes[0] = mesh;
-            _shapeData->vertexBuffers[0] = vertexBuffer.release();
-            _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = std::move(mesh);
+            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
+            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
         }
     } else if((getPrimitive || getMesh || getMaterial) && shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
         if (!importer)
@@ -330,9 +313,9 @@ bool Object::convertShapeNode() {
                 meshesCount++;
         }
 
-        Containers::Array<Mesh*> meshes(meshesCount);
-        Containers::Array<Buffer*> vertexBuffers(meshesCount);
-        Containers::Array<Buffer*> indexBuffers(meshesCount);
+        Containers::Array<Containers::Optional<Mesh>> meshes(meshesCount);
+        Containers::Array<Buffer> vertexBuffers(meshesCount);
+        Containers::Array<Containers::Optional<Buffer>> indexBuffers(meshesCount);
         Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials(meshesCount);
 
         UnsignedInt j = 0;
@@ -369,25 +352,24 @@ bool Object::convertShapeNode() {
 
                 if(getMesh) {
                     /* Create the mesh */
-                    Mesh* mesh = new Mesh{NoCreate};
+                    Containers::Optional<Mesh> mesh;
                     std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-                    std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::StaticDraw);
+                    std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(*meshData, BufferUsage::StaticDraw);
 
-                    meshes[j] = mesh;
-                    vertexBuffers[j] = vertexBuffer.release();
-                    indexBuffers[j] = indexBuffer.release();
+                    meshes[j] = std::move(mesh);
+                    vertexBuffers[j] = std::move(*vertexBuffer.release());
+                    if(indexBuffer)
+                        indexBuffers[j] = std::move(*indexBuffer.release());
                 }
 
                 j++;
             }
         }
 
-        Containers::Array<Texture2D*> textures(importer->textureCount());
+        Containers::Array<Containers::Optional<Texture2D>> textures(importer->textureCount());
 
         if(getMaterial) {
             for(UnsignedInt i = 0; i < importer->textureCount(); ++i) {
-                textures[i] = nullptr;
-
                 /* Cannot load, leave this element set to NullOpt */
                 Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
                 if (!textureData || textureData->type() != Trade::TextureData::Type::Texture2D) {
@@ -402,26 +384,19 @@ bool Object::convertShapeNode() {
                     continue;
                 }
 
-                auto texture = new Texture2D;
-                texture->setMagnificationFilter(textureData->magnificationFilter())
+                Texture2D texture;
+                texture.setMagnificationFilter(textureData->magnificationFilter())
                     .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
                     .setWrapping(textureData->wrapping().xy())
                     .setStorage(1, TextureFormat::RGB8, imageData->size())
                     .setSubImage(0, {}, *imageData)
                     .generateMipmap();
 
-                textures[i] = texture;
+                textures[i] = std::move(texture);
             }
         }
 
         if(getMesh) {
-            /* Delete meshes and previous buffers */
-            for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-                delete _shapeData->meshes[i];
-                delete _shapeData->vertexBuffers[i];
-                delete _shapeData->indexBuffers[i];
-            }
-
             _shapeData->meshes = std::move(meshes);
             _shapeData->vertexBuffers = std::move(vertexBuffers);
             _shapeData->indexBuffers = std::move(indexBuffers);
@@ -429,9 +404,6 @@ bool Object::convertShapeNode() {
 
         if(getMaterial) {
             _shapeData->materials = std::move(materials);
-
-            for(UnsignedInt i = 0; i < _shapeData->textures.size(); i++)
-                delete _shapeData->textures[i];
             _shapeData->textures = std::move(textures);
         }
 
@@ -463,26 +435,22 @@ bool Object::convertShapeNode() {
         Trade::MeshData3D meshData{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), positions, normals, std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
 
         /* Create the Magnum Mesh */
-        Mesh* mesh = new Mesh{NoCreate};
+        Containers::Optional<Mesh> mesh;
         std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-        std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
-
-        /* Delete meshes and previous buffers */
-        for(UnsignedInt i = 0; i < _shapeData->meshes.size(); i++) {
-            delete _shapeData->meshes[i];
-            delete _shapeData->vertexBuffers[i];
-            delete _shapeData->indexBuffers[i];
-        }
+        std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
         if(_shapeData->meshes.size() != 1) {
-            _shapeData->meshes = Containers::Array<Mesh*>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
-            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
+            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
         }
 
-        _shapeData->meshes[0] = mesh;
-        _shapeData->vertexBuffers[0] = vertexBuffer.release();
-        _shapeData->indexBuffers[0] = indexBuffer.release();
+        _shapeData->meshes[0] = std::move(mesh);
+        _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
+        /* This is not needed as indexBuffer is always null */
+        /* if(indexBuffer)
+         *  _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
+         */
     } else if(getPrimitive && shape->getType() == dart::dynamics::SphereShape::getStaticType()) {
         auto sphereShape = std::static_pointer_cast<dart::dynamics::SphereShape>(shape);
 
@@ -493,17 +461,17 @@ bool Object::convertShapeNode() {
             Trade::MeshData3D meshData{Primitives::Icosphere::solid(4)};
 
             /* Create the mesh */
-            Mesh* mesh = new Mesh{NoCreate};
+            Containers::Optional<Mesh> mesh;
             std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-            std::tie(*mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-            _shapeData->meshes = Containers::Array<Mesh*>(1);
-            _shapeData->vertexBuffers = Containers::Array<Buffer*>(1);
-            _shapeData->indexBuffers = Containers::Array<Buffer*>(1);
+            _shapeData->meshes = Containers::Array<Containers::Optional<Mesh>>(1);
+            _shapeData->vertexBuffers = Containers::Array<Buffer>(1);
+            _shapeData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(1);
 
-            _shapeData->meshes[0] = mesh;
-            _shapeData->vertexBuffers[0] = vertexBuffer.release();
-            _shapeData->indexBuffers[0] = indexBuffer.release();
+            _shapeData->meshes[0] = std::move(mesh);
+            _shapeData->vertexBuffers[0] = std::move(*vertexBuffer.release());
+            _shapeData->indexBuffers[0] = std::move(*indexBuffer.release());
         }
     } else if(firstTime) {
         Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";

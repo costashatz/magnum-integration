@@ -35,7 +35,9 @@
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/Optional.h>
 
-#include <Magnum/Magnum.h>
+#include <Magnum/Buffer.h>
+#include <Magnum/Mesh.h>
+#include <Magnum/Texture.h>
 #include <Magnum/SceneGraph/AbstractFeature.h>
 #include <Magnum/SceneGraph/AbstractTranslationRotation3D.h>
 #include <Magnum/Trade/PhongMaterialData.h>
@@ -56,22 +58,22 @@ namespace Magnum { namespace DartIntegration {
 */
 struct ShapeData {
     #ifndef DOXYGEN_GENERATING_OUTPUT
-    explicit ShapeData(Containers::Array<Mesh*> meshes, Containers::Array<Buffer*> vertexBuffers, Containers::Array<Buffer*> indexBuffers, Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials, Containers::Array<Texture2D*> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f}): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)}, scaling(scaling) {}
+    explicit ShapeData(Containers::Array<Containers::Optional<Mesh>> meshes, Containers::Array<Buffer> vertexBuffers, Containers::Array<Containers::Optional<Buffer>> indexBuffers, Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials, Containers::Array<Containers::Optional<Texture2D>> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f}): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)}, scaling(scaling) {}
     #endif
     /** @brief Meshes */
-    Containers::Array<Mesh*> meshes;
+    Containers::Array<Containers::Optional<Mesh>> meshes;
 
     /** @brief vertex Buffers */
-    Containers::Array<Buffer*> vertexBuffers;
+    Containers::Array<Buffer> vertexBuffers;
 
     /** @brief index Buffers */
-    Containers::Array<Buffer*> indexBuffers;
+    Containers::Array<Containers::Optional<Buffer>> indexBuffers;
 
     /** @brief Material data */
     Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials;
 
     /** @brief Textures */
-    Containers::Array<Texture2D*> textures;
+    Containers::Array<Containers::Optional<Texture2D>> textures;
 
     /** @brief Scaling */
     Vector3 scaling;
@@ -104,8 +106,6 @@ DartIntegration::Object* obj = new Object{&object, node};
 Only the DART body/node can affect the transformation of the Magnum object and
 not the other way around. To get the latest DART transformation, you should
 update the object with @ref update().
-
-@brief convertShapeNode
 
 Convert `ShapeNode` to mesh and material data
 
@@ -149,16 +149,19 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         Object& update();
 
         /** @brief Get whether Object was updated */
-        bool used();
+        bool isUpdated() { return _updated; }
 
-        /** @brief Clear usage flag (i.e., set it to false) */
-        Object& clearUsed();
+        /** @brief Clear update flag (i.e., set it to false) */
+        Object& clearUpdateFlag() {
+            _updated = false;
+            return *this;
+        }
 
         /** @brief Get whether Object's mesh was updated */
-        bool updatedMesh();
+        bool hasUpdatedMesh() { return _updatedMesh; }
 
         /** @brief Get ShapeData */
-        std::reference_wrapper<ShapeData> shapeData();
+        ShapeData& shapeData();
 
         /** @brief Underlying DART `ShapeNode` */
         dart::dynamics::ShapeNode* shapeNode() { return _node; }
@@ -175,7 +178,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         dart::dynamics::ShapeNode* _node;
         dart::dynamics::BodyNode* _body;
         std::unique_ptr<ShapeData> _shapeData;
-        bool _used, _updatedMesh;
+        bool _updated, _updatedMesh;
 };
 
 }}

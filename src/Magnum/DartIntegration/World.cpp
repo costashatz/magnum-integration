@@ -31,7 +31,7 @@ namespace Magnum { namespace DartIntegration {
         if (!_dartWorld)
             return *this;
         for(auto& obj : _dartToMagnum)
-            obj.second->clearUsed();
+            obj.second->clearUpdateFlag();
 
         for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
             parseSkeleton(_object, *_dartWorld->getSkeleton(i));
@@ -54,7 +54,7 @@ namespace Magnum { namespace DartIntegration {
         for(auto& object_pair : _dartToMagnum)
         {
             auto object = object_pair.second;
-            if(object && !object->used())
+            if(object && !object->isUpdated())
                 unusedFrames.push_back(object_pair.first);
         }
 

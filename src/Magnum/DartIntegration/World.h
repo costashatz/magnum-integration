@@ -135,7 +135,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Cleared all objects that were not updated during the last refresh call */
         World& clearUnusedObjects();
 
-        /** @brief Get unused objects
+        /** @brief Get unused objects; all objects that were not updated during the last refresh call
          * Note: this list will be cleared once a new refresh call is made
          */
         std::vector<std::shared_ptr<Object>> unusedObjects();
@@ -146,7 +146,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Get all @ref Objects that have shapes */
         std::vector<std::shared_ptr<Object>> shapeObjects();
 
-        /** @brief Get all @ref Objects that have updated shapes */
+        /** @brief Get all @ref Objects that have updated meshes */
         std::vector<std::shared_ptr<Object>> updatedShapeObjects();
 
         /** @brief Clear list of updated shape @ref Objects */
@@ -216,7 +216,7 @@ template <class T> void World::parseBodyNodeRecursive(T& parent, dart::dynamics:
             it.first->second = dartShapeObjectCreator(*shapeObj, shape);
         }
         it.first->second->update();
-        if(it.first->second->updatedMesh())
+        if(it.first->second->hasUpdatedMesh())
             _updatedShapeObjects.insert(it.first->second);
     }
 

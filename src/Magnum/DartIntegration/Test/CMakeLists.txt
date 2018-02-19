@@ -30,7 +30,6 @@ else()
     set(DARTINTEGRATION_TEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
-find_package(Magnum REQUIRED OpenGLTester)
 find_package(DART 6.0.0 CONFIG REQUIRED OPTIONAL_COMPONENTS io-urdf utils-urdf)
 
 # The DART URDF library is only needed for the tests

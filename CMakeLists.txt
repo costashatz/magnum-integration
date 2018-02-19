@@ -76,6 +76,10 @@ if(BUILD_TESTS)
     enable_testing()
 endif()
 
+if(BUILD_GL_TESTS)
+    find_package(Magnum REQUIRED OpenGLTester)
+endif()
+
 # Dynamic linking is meaningless on Emscripten and too inconvenient on Android
 if(CORRADE_TARGET_EMSCRIPTEN OR CORRADE_TARGET_ANDROID)
     set(BUILD_STATIC ON)

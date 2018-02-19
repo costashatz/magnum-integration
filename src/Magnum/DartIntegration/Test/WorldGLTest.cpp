@@ -208,31 +208,31 @@ dart::dynamics::BodyNode* addSoftBody(const dart::dynamics::SkeletonPtr& chain, 
 struct DartIntegrationTest: Magnum::OpenGLTester {
     explicit DartIntegrationTest();
 
-    void test();
-    void test_soft();
+    void pendulum();
+    void soft();
     void urdf();
-    void test_multi_mesh();
+    void multiMesh();
     void texture();
 
-    void bench_simple();
-    void bench_soft();
+    void simpleSimulation();
+    void softSimulation();
 };
 
 DartIntegrationTest::DartIntegrationTest() {
-    addTests({&DartIntegrationTest::test,
-              &DartIntegrationTest::test_soft,
+    addTests({&DartIntegrationTest::pendulum,
+              &DartIntegrationTest::soft,
               #if DART_URDF
               &DartIntegrationTest::urdf,
-              &DartIntegrationTest::test_multi_mesh,
+              &DartIntegrationTest::multiMesh,
               &DartIntegrationTest::texture
               #endif
               });
 
-    addBenchmarks({&DartIntegrationTest::bench_simple,
-                   &DartIntegrationTest::bench_soft}, 5);
+    addBenchmarks({&DartIntegrationTest::simpleSimulation,
+                   &DartIntegrationTest::softSimulation}, 5);
 }
 
-void DartIntegrationTest::test() {
+void DartIntegrationTest::pendulum() {
     /* Create an empty Skeleton with the name "pendulum" */
     std::string name = "pendulum";
     dart::dynamics::SkeletonPtr pendulum = dart::dynamics::Skeleton::create(name);
@@ -284,7 +284,7 @@ void DartIntegrationTest::test() {
     CORRADE_COMPARE(objTest->object().absoluteTransformationMatrix(), transformation);
 }
 
-void DartIntegrationTest::test_soft() {
+void DartIntegrationTest::soft() {
     /* Create a soft body node */
     auto soft = dart::dynamics::Skeleton::create("soft");
     addSoftBody<dart::dynamics::WeldJoint>(soft, "soft box");
@@ -347,7 +347,7 @@ void DartIntegrationTest::urdf() {
     }
 }
 
-void DartIntegrationTest::test_multi_mesh() {
+void DartIntegrationTest::multiMesh() {
     #if DART_MAJOR_VERSION == 6
     dart::utils::DartLoader loader;
     #else
@@ -437,7 +437,7 @@ void DartIntegrationTest::texture() {
 }
 #endif
 
-void DartIntegrationTest::bench_simple() {
+void DartIntegrationTest::simpleSimulation() {
     /* Create an empty Skeleton with the name "pendulum" */
     std::string name = "pendulum";
     dart::dynamics::SkeletonPtr pendulum = dart::dynamics::Skeleton::create(name);
@@ -475,7 +475,7 @@ void DartIntegrationTest::bench_simple() {
     }
 }
 
-void DartIntegrationTest::bench_soft() {
+void DartIntegrationTest::softSimulation() {
     CORRADE_BENCHMARK(5) {
         /* Create a soft body node */
         auto soft = dart::dynamics::Skeleton::create("soft");

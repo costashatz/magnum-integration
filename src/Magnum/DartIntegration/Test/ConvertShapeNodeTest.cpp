@@ -363,6 +363,10 @@ void ConvertShapeNodeTest::urdf() {
 }
 
 void ConvertShapeNodeTest::multiMesh() {
+    /** @todo Possibly works with earlier versions (definitely not 3.0) */
+    const UnsignedInt assimpVersion = aiGetVersionMajor()*100 + aiGetVersionMinor();
+    if(assimpVersion < 302)
+        CORRADE_SKIP("Current version of Assimp would not work on this test.");
     #if DART_MAJOR_VERSION == 6
     dart::utils::DartLoader loader;
     #else

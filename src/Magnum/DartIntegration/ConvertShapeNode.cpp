@@ -188,8 +188,11 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         UnsignedInt meshesCount = 0;
         for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {
             auto meshData3D = dynamic_cast<Trade::MeshObjectData3D*>(importer->object3D(i).release());
-            if(meshData3D)
+            if(meshData3D) {
                 meshesCount++;
+                /* delete no longer used MeshObjectData3D */
+                delete meshData3D;
+            }
         }
 
         Containers::Array<Trade::MeshData3D> meshes(Containers::NoInit, meshesCount);
@@ -238,6 +241,9 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                     new(&meshes[j]) Trade::MeshData3D{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), std::vector<std::vector<Vector3>>(1, std::vector<Vector3>()), std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
 
                 j++;
+
+                /* delete no longer used MeshObjectData3D */
+                delete meshData3D;
             }
         }
 

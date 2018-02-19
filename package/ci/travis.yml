@@ -178,7 +178,7 @@ cache:
   - $HOME/deps-dart
 
 install:
-- if [ "$TRAVIS_OS_NAME" == "osx" ]; then export WITH_DART=ON; fi
+- if [ "$TRAVIS_OS_NAME" == "osx" ]; then export WITH_DART=OFF; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ]; then export WITH_DART=ON; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ ! "$TARGET" == "desktop-sanitizers" ]; then export CXX=g++-4.8; fi
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$TARGET" == "desktop-sanitizers" ]; then export CXX=clang++-3.8; fi
@@ -203,7 +203,7 @@ install:
 
 # DART and its dependencies
 - if [ "$TRAVIS_OS_NAME" == "linux" ]; then ./package/ci/travis-dependencies.sh; fi
-- if [ "$TRAVIS_OS_NAME" == "osx" ]; then HOMEBREW_NO_AUTO_UPDATE=1 brew install dartsim; fi
+# TODO: enable on macOS once HOMEBREW_NO_AUTO_UPDATE=1 brew install dartsim is fixed
 
 script:
 - if [ "$TRAVIS_OS_NAME" == "linux" ] && ( [ "$TARGET" == "desktop" ] || [ "$TARGET" == "desktop-sanitizers" ] ); then ./package/ci/travis-desktop.sh; fi

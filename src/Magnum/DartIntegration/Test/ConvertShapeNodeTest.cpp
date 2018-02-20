@@ -244,7 +244,7 @@ void ConvertShapeNodeTest::basicShapes() {
 
         std::shared_ptr<dart::dynamics::BoxShape> box(new dart::dynamics::BoxShape(Eigen::Vector3d(1., 1., 1.)));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(box);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
     }
     {
@@ -256,7 +256,7 @@ void ConvertShapeNodeTest::basicShapes() {
 
         std::shared_ptr<dart::dynamics::CapsuleShape> capsule(new dart::dynamics::CapsuleShape(1., 1.));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(capsule);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
     }
     {
@@ -268,7 +268,7 @@ void ConvertShapeNodeTest::basicShapes() {
 
         std::shared_ptr<dart::dynamics::CylinderShape> cylinder(new dart::dynamics::CylinderShape(1., 1.));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(cylinder);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
     }
     {
@@ -280,7 +280,7 @@ void ConvertShapeNodeTest::basicShapes() {
 
         std::shared_ptr<dart::dynamics::EllipsoidShape> ellipsoid(new dart::dynamics::EllipsoidShape(Eigen::Vector3d(1., 1., 1.)));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(ellipsoid);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
     }
     {
@@ -292,7 +292,7 @@ void ConvertShapeNodeTest::basicShapes() {
 
         std::shared_ptr<dart::dynamics::SphereShape> sphere(new dart::dynamics::SphereShape(1.));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(sphere);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
     }
 }
@@ -308,7 +308,7 @@ void ConvertShapeNodeTest::assimpImporter() {
         /* pass nullptr as the mesh because we are not going to use it */
         std::shared_ptr<dart::dynamics::MeshShape> mesh(new dart::dynamics::MeshShape(Eigen::Vector3d(1., 1., 1.), nullptr));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(mesh);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, nullptr);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, nullptr);
         CORRADE_VERIFY(!shapeDataAll);
     }
     {
@@ -325,7 +325,7 @@ void ConvertShapeNodeTest::assimpImporter() {
         aiScene* noMeshScene = new aiScene;
         std::shared_ptr<dart::dynamics::MeshShape> mesh(new dart::dynamics::MeshShape(Eigen::Vector3d(1., 1., 1.), noMeshScene));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(mesh);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
         CORRADE_VERIFY(!shapeDataAll);
     }
     #if DART_URDF
@@ -350,7 +350,7 @@ void ConvertShapeNodeTest::assimpImporter() {
         aiMesh* mesh = assimpScene->mMeshes[0];
         mesh->mPrimitiveTypes = aiPrimitiveType::aiPrimitiveType_POLYGON;
 
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
         CORRADE_VERIFY(!shapeDataAll);
     }
     {
@@ -367,13 +367,13 @@ void ConvertShapeNodeTest::assimpImporter() {
         /* check dart::dynamics::MeshShape::SHAPE_COLOR */
         meshShape->setColorMode(dart::dynamics::MeshShape::SHAPE_COLOR);
 
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
         CORRADE_VERIFY(shapeDataAll);
 
         /* check dart::dynamics::MeshShape::COLOR_INDEX when no colors available */
         meshShape->setColorMode(dart::dynamics::MeshShape::COLOR_INDEX);
 
-        shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
         CORRADE_VERIFY(shapeDataAll);
 
         /* check dart::dynamics::MeshShape::COLOR_INDEX with colors */
@@ -386,7 +386,7 @@ void ConvertShapeNodeTest::assimpImporter() {
         /* set color index higher than the one available */
         meshShape->setColorIndex(1);
 
-        shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
         CORRADE_VERIFY(shapeDataAll);
     }
     #endif
@@ -402,7 +402,7 @@ void ConvertShapeNodeTest::unsupportedShapes() {
 
         std::shared_ptr<dart::dynamics::ConeShape> cone(new dart::dynamics::ConeShape(1., 1.));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(cone);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(!shapeDataAll);
     }
     {
@@ -414,7 +414,7 @@ void ConvertShapeNodeTest::unsupportedShapes() {
 
         std::shared_ptr<dart::dynamics::LineSegmentShape> line(new dart::dynamics::LineSegmentShape());
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(line);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(!shapeDataAll);
     }
     {
@@ -426,7 +426,7 @@ void ConvertShapeNodeTest::unsupportedShapes() {
 
         std::shared_ptr<dart::dynamics::MultiSphereConvexHullShape> multiSphere(new dart::dynamics::MultiSphereConvexHullShape(std::vector<std::pair<double, Eigen::Vector3d>>()));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(multiSphere);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(!shapeDataAll);
     }
     {
@@ -438,7 +438,7 @@ void ConvertShapeNodeTest::unsupportedShapes() {
 
         std::shared_ptr<dart::dynamics::PlaneShape> plane(new dart::dynamics::PlaneShape(Eigen::Vector3d(1., 1., 1.), 1.));
         auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(plane);
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(!shapeDataAll);
     }
 }
@@ -462,13 +462,13 @@ void ConvertShapeNodeTest::pendulum() {
     pendulum->getDof(3)->setPosition(Double(Radd(-50.0_deg)));
 
     for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
-        auto shapeDataMaterial = convertShapeNode(*shapeNode, ShapeLoadType::Material);
+        auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material);
         CORRADE_VERIFY(shapeDataMaterial);
-        auto shapeDataPrimitive = convertShapeNode(*shapeNode, ShapeLoadType::Primitive);
+        auto shapeDataPrimitive = convertShapeNode(*shapeNode, ConvertShapeType::Primitive);
         CORRADE_VERIFY(shapeDataPrimitive);
-        auto shapeDataMesh = convertShapeNode(*shapeNode, ShapeLoadType::Mesh);
+        auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh);
         CORRADE_VERIFY(shapeDataMesh);
         
         CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);
@@ -498,13 +498,13 @@ void ConvertShapeNodeTest::soft() {
     auto bn = addSoftBody<dart::dynamics::WeldJoint>(soft, "soft box");
 
     for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
-        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
-        auto shapeDataMaterial = convertShapeNode(*shapeNode, ShapeLoadType::Material);
+        auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material);
         CORRADE_VERIFY(shapeDataMaterial);
-        auto shapeDataPrimitive = convertShapeNode(*shapeNode, ShapeLoadType::Primitive);
+        auto shapeDataPrimitive = convertShapeNode(*shapeNode, ConvertShapeType::Primitive);
         CORRADE_VERIFY(shapeDataPrimitive);
-        auto shapeDataMesh = convertShapeNode(*shapeNode, ShapeLoadType::Mesh);
+        auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh);
         CORRADE_VERIFY(shapeDataMesh);
         
         CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);
@@ -548,13 +548,13 @@ void ConvertShapeNodeTest::urdf() {
 
     for(auto& bn : tmp_skel->getBodyNodes()) {
         for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
-            auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+            auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
             CORRADE_VERIFY(shapeDataAll);
-            auto shapeDataMaterial = convertShapeNode(*shapeNode, ShapeLoadType::Material, importer.get());
+            auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material, importer.get());
             CORRADE_VERIFY(shapeDataMaterial);
-            auto shapeDataPrimitive = convertShapeNode(*shapeNode, ShapeLoadType::Primitive, importer.get());
+            auto shapeDataPrimitive = convertShapeNode(*shapeNode, ConvertShapeType::Primitive, importer.get());
             CORRADE_VERIFY(shapeDataPrimitive);
-            auto shapeDataMesh = convertShapeNode(*shapeNode, ShapeLoadType::Mesh, importer.get());
+            auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh, importer.get());
             CORRADE_VERIFY(shapeDataMesh);
             
             CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);
@@ -606,13 +606,13 @@ void ConvertShapeNodeTest::multiMesh() {
 
     for(auto& bn : tmp_skel->getBodyNodes()) {
         for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
-            auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+            auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
             CORRADE_VERIFY(shapeDataAll);
-            auto shapeDataMaterial = convertShapeNode(*shapeNode, ShapeLoadType::Material, importer.get());
+            auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material, importer.get());
             CORRADE_VERIFY(shapeDataMaterial);
-            auto shapeDataPrimitive = convertShapeNode(*shapeNode, ShapeLoadType::Primitive, importer.get());
+            auto shapeDataPrimitive = convertShapeNode(*shapeNode, ConvertShapeType::Primitive, importer.get());
             CORRADE_VERIFY(shapeDataPrimitive);
-            auto shapeDataMesh = convertShapeNode(*shapeNode, ShapeLoadType::Mesh, importer.get());
+            auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh, importer.get());
             CORRADE_VERIFY(shapeDataMesh);
             
             CORRADE_COMPARE(shapeDataAll->meshes.size(), 2);
@@ -658,13 +658,13 @@ void ConvertShapeNodeTest::texture() {
 
     for(auto& bn : tmp_skel->getBodyNodes()) {
         for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
-            auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+            auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
             CORRADE_VERIFY(shapeDataAll);
-            auto shapeDataMaterial = convertShapeNode(*shapeNode, ShapeLoadType::Material, importer.get());
+            auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material, importer.get());
             CORRADE_VERIFY(shapeDataMaterial);
-            auto shapeDataPrimitive = convertShapeNode(*shapeNode, ShapeLoadType::Primitive, importer.get());
+            auto shapeDataPrimitive = convertShapeNode(*shapeNode, ConvertShapeType::Primitive, importer.get());
             CORRADE_VERIFY(shapeDataPrimitive);
-            auto shapeDataMesh = convertShapeNode(*shapeNode, ShapeLoadType::Mesh, importer.get());
+            auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh, importer.get());
             CORRADE_VERIFY(shapeDataMesh);
             
             CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);

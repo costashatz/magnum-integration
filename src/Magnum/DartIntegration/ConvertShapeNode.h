@@ -77,18 +77,28 @@ struct ShapeData {
     Vector3 scaling;
 };
 
-enum class ShapeLoadType : unsigned int {
+/**
+@brief ConvertShapeType
+
+What should be loaded from the dart::dynamics::ShapeNode, see @ref convertShapeNode()
+@experimental
+*/
+enum class ConvertShapeType : unsigned int {
+    /* @brief Load only material information */
     Material = 1 << 0,
+    /* @brief Load scaling information */
     Primitive = 1 << 1,
+    /* @brief Load full meshes; this applies only to dart::dynamics::MeshShape and dart::dynamics::SoftMeshShape */
     Mesh = 1 << 2,
-    All = 1 << 3 /* first time flag */
+    /* @brief Load everything */
+    All = 1 << 3
 };
 
-typedef Containers::EnumSet<ShapeLoadType> ShapeLoadTypes;
-CORRADE_ENUMSET_OPERATORS(ShapeLoadTypes)
+typedef Containers::EnumSet<ConvertShapeType> ConvertShapeTypes;
+CORRADE_ENUMSET_OPERATORS(ConvertShapeTypes)
 
 /**
-@brief Convert `ShapeNode` to meshes and material data
+@brief Convert `dart::dynamics::ShapeNode` to meshes and material data
 
 Returns @ref Corrade::Containers::NullOpt if the shape of given `ShapeNode` is
 not supported. The following DART shapes are supported:
@@ -108,6 +118,13 @@ The following DART shapes are not yet supported:
 -   `MultiSphereConvexHullShape`
 -   `PlaneShape` (this is an infinite plane with normal)
 
+The @ref Trade::AbstractImporter `importer` argument is only used when loading
+`dart::dynamics::ShapeNode` with a shape of type `dart::dynamics::MeshShape`.
+As a consequence, you can pass a nullptr if you do not want to load such a
+`dart::dynamics::ShapeNode`. On the contrary, when you are trying to load a
+`dart::dynamics::MeshShape` and the importer is a nullptr, the function will
+return @ref Corrade::Containers::NullOpt
+
 @attention
 Soft meshes should be drawn with @ref Renderer::Feature::FaceCulling enabled
 as each triangle is drawn twice (once with the original orientation and once
@@ -115,7 +132,7 @@ with the reversed orientation)
 
 @experimental
 */
-Containers::Optional<ShapeData> MAGNUM_DARTINTEGRATION_EXPORT convertShapeNode(dart::dynamics::ShapeNode& shapeNode, ShapeLoadTypes loadType, Trade::AbstractImporter* importer = nullptr);
+Containers::Optional<ShapeData> MAGNUM_DARTINTEGRATION_EXPORT convertShapeNode(dart::dynamics::ShapeNode& shapeNode, ConvertShapeTypes loadType, Trade::AbstractImporter* importer = nullptr);
 
 }}
 

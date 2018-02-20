@@ -121,15 +121,15 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
                     || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_ELEMENTS)
                     || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC);
 
-    ShapeLoadTypes loadType;
+    ConvertShapeTypes loadType;
     if(firstTime)
-        loadType |= ShapeLoadType::All;
+        loadType |= ConvertShapeType::All;
     if(getMaterial)
-        loadType |= ShapeLoadType::Material;
+        loadType |= ConvertShapeType::Material;
     if(getPrimitive)
-        loadType |= ShapeLoadType::Primitive;
+        loadType |= ConvertShapeType::Primitive;
     if(getMesh)
-        loadType |= ShapeLoadType::Mesh;
+        loadType |= ConvertShapeType::Mesh;
 
     /* if first time we need to get everything */
     getMaterial = firstTime || getMaterial;

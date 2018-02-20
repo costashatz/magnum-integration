@@ -56,13 +56,13 @@
 
 namespace Magnum { namespace DartIntegration {
 
-Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shapeNode, ShapeLoadTypes loadType, Trade::AbstractImporter* importer) {
+Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shapeNode, ConvertShapeTypes loadType, Trade::AbstractImporter* importer) {
     dart::dynamics::ShapePtr shape = shapeNode.getShape();
 
-    bool firstTime = static_cast<bool>(loadType & ShapeLoadType::All);
-    bool getMaterial = firstTime || static_cast<bool>(loadType & ShapeLoadType::Material);
-    bool getPrimitive = firstTime || static_cast<bool>(loadType & ShapeLoadType::Primitive);
-    bool getMesh = firstTime || static_cast<bool>(loadType & ShapeLoadType::Mesh);
+    bool firstTime = static_cast<bool>(loadType & ConvertShapeType::All);
+    bool getMaterial = firstTime || static_cast<bool>(loadType & ConvertShapeType::Material);
+    bool getPrimitive = firstTime || static_cast<bool>(loadType & ConvertShapeType::Primitive);
+    bool getMesh = firstTime || static_cast<bool>(loadType & ConvertShapeType::Mesh);
 
     ShapeData shapeData{{}, {}, {}, {}};
 

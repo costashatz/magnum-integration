@@ -136,7 +136,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         }
     } else if((getPrimitive || getMesh || getMaterial) && shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
         if (!importer) {
-            Error{} << "DartIntegration::convertShapeNode(): AssimpImporter is not available and you are trying to load a dart::dynamics::MeshShape";
+            Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): AssimpImporter is not available and you are trying to load a dart::dynamics::MeshShape" << Debug::resetColor;
             return Containers::NullOpt;
         }
         auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
@@ -152,7 +152,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
 
         bool loaded = importer->openState(aiMesh, meshPath);
         if(!loaded || importer->mesh3DCount() < 1) {
-            Error{} << "DartIntegration::convertShapeNode(): Could not load aiScene or there is no mesh in it";
+            Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): Could not load aiScene or there is no mesh in it" << Debug::resetColor;
             return Containers::NullOpt;
         }
 
@@ -166,8 +166,8 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
             }
         }
 
-        Containers::Array<Trade::MeshData3D> meshes(Containers::NoInit, meshesCount);
-        Containers::Array<Trade::PhongMaterialData> materials(Containers::NoInit, meshesCount);
+        Containers::Array<Containers::Optional<Trade::MeshData3D>> meshes(meshesCount);
+        Containers::Array<Containers::Optional<Trade::PhongMaterialData>> materials(meshesCount);
 
         UnsignedInt j = 0;
         for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {
@@ -175,12 +175,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
             if(meshData3D) {
                 Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(meshData3D->instance());
                 if(!meshData){
-                    /* fix for seg-faults */
-                    for(UnsignedInt k = j; k < meshesCount; k++) {
-                        new(&materials[k]) Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
-                        new(&meshes[k]) Trade::MeshData3D{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), std::vector<std::vector<Vector3>>(1, std::vector<Vector3>()), std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
-                    }
-                    Error{} << "DartIntegration::convertShapeNode(): Could not load mesh with index" << meshData3D->instance();
+                    Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): Could not load mesh with index" << meshData3D->instance() << Debug::resetColor;
                     /* delete no longer used MeshObjectData3D */
                     delete meshData3D;
                     return Containers::NullOpt;
@@ -192,7 +187,12 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                     if(importer->materialCount() && getMaterial) {
                         if(colorMode == dart::dynamics::MeshShape::ColorMode::MATERIAL_COLOR) {
                             auto matPtr = importer->material(meshData3D->material());
-                            new(&materials[j]) Trade::PhongMaterialData{std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()))};
+                            if(matPtr)
+                                materials[j] = std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()));
+                            else {
+                                Warning{} << Debug::boldColor(Debug::Color::Yellow) << "DartIntegration::convertShapeNode(): Could not load material with index" << meshData3D->material() << Debug::nospace << ".Falling back to SHAPE_COLOR mode" << Debug::resetColor;
+                                materials[j] = std::move(nodeMaterial);
+                            }
                         }
                         else if(colorMode == dart::dynamics::MeshShape::ColorMode::COLOR_INDEX) {
                             /* get diffuse color from Mesh color */
@@ -202,33 +202,27 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                                  */
                                 Int colorIndex = (static_cast<UnsignedInt>(meshShape->getColorIndex())>=meshData->colors(0).size()) ? meshData->colors(0).size()-1 : meshShape->getColorIndex();
                                 Color4 meshColor = meshData->colors(0)[colorIndex];
-                                new(&materials[j]) Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
-                                materials[j].diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
+                                materials[j] = Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
+                                materials[j]->diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
                                 /* default colors for ambient (black) and specular (white) */
-                                materials[j].ambientColor() = Vector3{0.f, 0.f, 0.f};
-                                materials[j].specularColor() = Vector3{1.f, 1.f, 1.f};
+                                materials[j]->ambientColor() = Vector3{0.f, 0.f, 0.f};
+                                materials[j]->specularColor() = Vector3{1.f, 1.f, 1.f};
                             }
                             /* fallback to SHAPE_COLOR if MeshData has no colors */
                             else {
-                                Warning{} << "DartIntegration::convertShapeNode(): Assimp mesh has no colors. Falling back to SHAPE_COLOR mode";
-                                new(&materials[j]) Trade::PhongMaterialData{std::move(nodeMaterial)};
+                                Warning{} << Debug::boldColor(Debug::Color::Yellow) << "DartIntegration::convertShapeNode(): Assimp mesh has no colors. Falling back to SHAPE_COLOR mode" << Debug::resetColor;
+                                materials[j] = std::move(nodeMaterial);
                             }
                         }
                         else if (colorMode == dart::dynamics::MeshShape::ColorMode::SHAPE_COLOR) {
-                            new(&materials[j]) Trade::PhongMaterialData{std::move(nodeMaterial)};
+                            materials[j] = std::move(nodeMaterial);
                         }
                     }
                 }
-                /* fallback material to by-pass seg-faults */
-                else
-                    new(&materials[j]) Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
 
                 if(getMesh) {
-                    new(&meshes[j]) Trade::MeshData3D{std::move(*meshData)};
+                    meshes[j] = std::move(*meshData);
                 }
-                /* fallback mesh data to by-pass seg-faults */
-                else
-                    new(&meshes[j]) Trade::MeshData3D{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), std::vector<std::vector<Vector3>>(1, std::vector<Vector3>()), std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
 
                 j++;
 
@@ -245,14 +239,14 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                 /* Cannot load, leave this element set to NullOpt */
                 Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
                 if (!textureData || textureData->type() != Trade::TextureData::Type::Texture2D) {
-                    Warning{} << "Cannot load texture, skipping";
+                    Warning{} << Debug::boldColor(Debug::Color::Yellow) << "Cannot load texture, skipping" << Debug::resetColor;
                     continue;
                 }
 
                 /* Cannot load, leave this element set to NullOpt */
                 Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image());
                 if (!imageData) {
-                    Warning{} << "Cannot load texture image, skipping";
+                    Warning{} << Debug::boldColor(Debug::Color::Yellow) << "Cannot load texture image, skipping" << Debug::resetColor;
                     continue;
                 }
 
@@ -262,11 +256,15 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         }
 
         if(getMesh) {
-            shapeData.meshes = std::move(meshes);
+            shapeData.meshes = Containers::Array<Trade::MeshData3D>(Containers::NoInit, meshes.size());
+            for(UnsignedInt m = 0; m < meshes.size(); m++)
+                new(&shapeData.meshes[m]) Trade::MeshData3D{std::move(*meshes[m])};
         }
 
         if(getMaterial) {
-            shapeData.materials = std::move(materials);
+            shapeData.materials = Containers::Array<Trade::PhongMaterialData>(Containers::NoInit, materials.size());
+            for(UnsignedInt m = 0; m < materials.size(); m++)
+                new(&shapeData.materials[m]) Trade::PhongMaterialData{std::move(*materials[m])};
             shapeData.images = std::move(images);
             shapeData.textures = std::move(textures);
         }
@@ -331,7 +329,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
             new(&shapeData.meshes[0]) Trade::MeshData3D{Primitives::Icosphere::solid(4)};
         }
     } else if(firstTime) {
-        Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";
+        Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported" << Debug::resetColor;
         return Containers::NullOpt;
     }
 

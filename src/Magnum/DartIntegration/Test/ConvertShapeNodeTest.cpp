@@ -339,7 +339,7 @@ void ConvertShapeNodeTest::assimpImporter() {
         std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
         CORRADE_VERIFY(importer);
 
-        const std::string filename = Utility::Directory::join(DARTINTEGRATION_TEST_DIR, "urdf/test_multi_mesh.urdf");
+        const std::string filename = Utility::Directory::join(DARTINTEGRATION_TEST_DIR, "urdf/test.urdf");
         auto tmp_skel = loader.parseSkeleton(filename);
 
         auto shapeNode = tmp_skel->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0];
@@ -358,7 +358,7 @@ void ConvertShapeNodeTest::assimpImporter() {
         std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
         CORRADE_VERIFY(importer);
 
-        const std::string filename = Utility::Directory::join(DARTINTEGRATION_TEST_DIR, "urdf/test_multi_mesh.urdf");
+        const std::string filename = Utility::Directory::join(DARTINTEGRATION_TEST_DIR, "urdf/test.urdf");
         auto tmp_skel = loader.parseSkeleton(filename);
 
         auto shapeNode = tmp_skel->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0];
@@ -379,9 +379,6 @@ void ConvertShapeNodeTest::assimpImporter() {
         /* check dart::dynamics::MeshShape::COLOR_INDEX with colors */
         const aiScene* assimpScene = meshShape->getMesh();
         aiMesh* mesh = assimpScene->mMeshes[0];
-        /* add one color to aiMesh */
-        mesh->mColors[0] = new aiColor4D;
-        mesh = assimpScene->mMeshes[1];
         /* add one color to aiMesh */
         mesh->mColors[0] = new aiColor4D;
 

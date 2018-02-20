@@ -29,12 +29,20 @@
 #include <dart/dynamics/BallJoint.hpp>
 #include <dart/dynamics/BodyNode.hpp>
 #include <dart/dynamics/BoxShape.hpp>
+#include <dart/dynamics/CapsuleShape.hpp>
+#include <dart/dynamics/ConeShape.hpp>
 #include <dart/dynamics/CylinderShape.hpp>
 #include <dart/dynamics/EllipsoidShape.hpp>
 #include <dart/dynamics/FreeJoint.hpp>
+#include <dart/dynamics/LineSegmentShape.hpp>
 #include <dart/dynamics/MeshShape.hpp>
+#include <dart/dynamics/MultiSphereConvexHullShape.hpp>
+#include <dart/dynamics/PlaneShape.hpp>
 #include <dart/dynamics/RevoluteJoint.hpp>
+#include <dart/dynamics/ShapeNode.hpp>
 #include <dart/dynamics/SoftBodyNode.hpp>
+#include <dart/dynamics/SoftMeshShape.hpp>
+#include <dart/dynamics/SphereShape.hpp>
 #include <dart/dynamics/Skeleton.hpp>
 #include <dart/dynamics/WeldJoint.hpp>
 #include <Corrade/PluginManager/Manager.h>
@@ -202,6 +210,9 @@ dart::dynamics::BodyNode* addSoftBody(const dart::dynamics::SkeletonPtr& chain, 
 struct ConvertShapeNodeTest: TestSuite::Tester {
     explicit ConvertShapeNodeTest();
 
+    void basicShapes();
+    void nullImporter();
+    void unsupportedShapes();
     void pendulum();
     void soft();
     void urdf();
@@ -210,7 +221,10 @@ struct ConvertShapeNodeTest: TestSuite::Tester {
 };
 
 ConvertShapeNodeTest::ConvertShapeNodeTest() {
-    addTests({&ConvertShapeNodeTest::pendulum,
+    addTests({&ConvertShapeNodeTest::basicShapes,
+              &ConvertShapeNodeTest::nullImporter,
+              &ConvertShapeNodeTest::unsupportedShapes,
+              &ConvertShapeNodeTest::pendulum,
               &ConvertShapeNodeTest::soft,
               #if DART_URDF
               &ConvertShapeNodeTest::urdf,
@@ -218,6 +232,134 @@ ConvertShapeNodeTest::ConvertShapeNodeTest() {
               &ConvertShapeNodeTest::texture
               #endif
               });
+}
+
+void ConvertShapeNodeTest::basicShapes() {
+    {
+        /* BoxShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("BoxShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("BoxShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::BoxShape> box(new dart::dynamics::BoxShape(Eigen::Vector3d(1., 1., 1.)));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(box);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(shapeDataAll);
+    }
+    {
+        /* CapsuleShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("CapsuleShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("CapsuleShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::CapsuleShape> capsule(new dart::dynamics::CapsuleShape(1., 1.));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(capsule);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(shapeDataAll);
+    }
+    {
+        /* CylinderShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("CylinderShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("CylinderShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::CylinderShape> cylinder(new dart::dynamics::CylinderShape(1., 1.));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(cylinder);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(shapeDataAll);
+    }
+    {
+        /* EllipsoidShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("EllipsoidShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("EllipsoidShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::EllipsoidShape> ellipsoid(new dart::dynamics::EllipsoidShape(Eigen::Vector3d(1., 1., 1.)));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(ellipsoid);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(shapeDataAll);
+    }
+    {
+        /* SphereShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("SphereShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("SphereShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::SphereShape> sphere(new dart::dynamics::SphereShape(1.));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(sphere);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(shapeDataAll);
+    }
+}
+
+void ConvertShapeNodeTest::nullImporter() {
+    /* MeshShape */
+    dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("MeshShape");
+
+    dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+        nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("MeshShapeBody")).second;
+
+    /* pass nullptr as the mesh because we are not going to use it */
+    std::shared_ptr<dart::dynamics::MeshShape> mesh(new dart::dynamics::MeshShape(Eigen::Vector3d(1., 1., 1.), nullptr));
+    auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(mesh);
+    auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, nullptr);
+    CORRADE_VERIFY(!shapeDataAll);
+}
+
+void ConvertShapeNodeTest::unsupportedShapes() {
+    {
+        /* ConeShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("ConeShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("ConeShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::ConeShape> cone(new dart::dynamics::ConeShape(1., 1.));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(cone);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(!shapeDataAll);
+    }
+    {
+        /* LineSegmentShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("LineSegmentShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("LineSegmentShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::LineSegmentShape> line(new dart::dynamics::LineSegmentShape());
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(line);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(!shapeDataAll);
+    }
+    {
+        /* MultiSphereConvexHullShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("MultiSphereConvexHullShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("MultiSphereConvexHullShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::MultiSphereConvexHullShape> multiSphere(new dart::dynamics::MultiSphereConvexHullShape(std::vector<std::pair<double, Eigen::Vector3d>>()));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(multiSphere);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(!shapeDataAll);
+    }
+    {
+        /* PlaneShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("PlaneShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("PlaneShapeBody")).second;
+
+        std::shared_ptr<dart::dynamics::PlaneShape> plane(new dart::dynamics::PlaneShape(Eigen::Vector3d(1., 1., 1.), 1.));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(plane);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All);
+        CORRADE_VERIFY(!shapeDataAll);
+    }
 }
 
 void ConvertShapeNodeTest::pendulum() {

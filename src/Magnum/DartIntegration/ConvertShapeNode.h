@@ -38,6 +38,7 @@
 #include <Magnum/Trade/MeshData3D.h>
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Trade/TextureData.h>
+#include <Magnum/Trade/Trade.h>
 
 #include "Magnum/DartIntegration/DartIntegration.h"
 #include "Magnum/DartIntegration/visibility.h"
@@ -45,10 +46,6 @@
 namespace dart { namespace dynamics {
     class BodyNode;
     class ShapeNode;
-}}
-
-namespace Magnum { namespace Trade{
-class AbstractImporter;
 }}
 
 namespace Magnum { namespace DartIntegration {

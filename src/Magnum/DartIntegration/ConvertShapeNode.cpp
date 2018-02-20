@@ -181,6 +181,8 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                         new(&meshes[k]) Trade::MeshData3D{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), std::vector<std::vector<Vector3>>(1, std::vector<Vector3>()), std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
                     }
                     Error{} << "DartIntegration::convertShapeNode(): Could not load mesh with index" << meshData3D->instance();
+                    /* delete no longer used MeshObjectData3D */
+                    delete meshData3D;
                     return Containers::NullOpt;
                 }
 

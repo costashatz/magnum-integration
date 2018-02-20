@@ -41,16 +41,13 @@
 #include <Magnum/SceneGraph/AbstractFeature.h>
 #include <Magnum/SceneGraph/AbstractTranslationRotation3D.h>
 #include <Magnum/Trade/PhongMaterialData.h>
+#include <Magnum/Trade/Trade.h>
 
 #include "Magnum/DartIntegration/visibility.h"
 
 namespace dart { namespace dynamics {
     class BodyNode;
     class ShapeNode;
-}}
-
-namespace Magnum { namespace Trade{
-class AbstractImporter;
 }}
 
 namespace Magnum { namespace DartIntegration {

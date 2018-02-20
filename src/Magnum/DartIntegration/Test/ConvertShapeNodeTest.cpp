@@ -380,7 +380,7 @@ void ConvertShapeNodeTest::assimpImporter() {
         const aiScene* assimpScene = meshShape->getMesh();
         aiMesh* mesh = assimpScene->mMeshes[0];
         /* add one color to aiMesh */
-        mesh->mColors[0] = new aiColor4D;
+        mesh->mColors[0] = new aiColor4D[mesh->mNumVertices];
 
         meshShape->setColorMode(dart::dynamics::MeshShape::COLOR_INDEX);
         /* set color index higher than the one available */

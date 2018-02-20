@@ -211,7 +211,7 @@ struct ConvertShapeNodeTest: TestSuite::Tester {
     explicit ConvertShapeNodeTest();
 
     void basicShapes();
-    void nullImporter();
+    void assimpImporter();
     void unsupportedShapes();
     void pendulum();
     void soft();
@@ -222,7 +222,7 @@ struct ConvertShapeNodeTest: TestSuite::Tester {
 
 ConvertShapeNodeTest::ConvertShapeNodeTest() {
     addTests({&ConvertShapeNodeTest::basicShapes,
-              &ConvertShapeNodeTest::nullImporter,
+              &ConvertShapeNodeTest::assimpImporter,
               &ConvertShapeNodeTest::unsupportedShapes,
               &ConvertShapeNodeTest::pendulum,
               &ConvertShapeNodeTest::soft,
@@ -297,18 +297,102 @@ void ConvertShapeNodeTest::basicShapes() {
     }
 }
 
-void ConvertShapeNodeTest::nullImporter() {
-    /* MeshShape */
-    dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("MeshShape");
+void ConvertShapeNodeTest::assimpImporter() {
+    {
+        /* MeshShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("MeshShape");
 
-    dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
-        nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("MeshShapeBody")).second;
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("MeshShapeBody")).second;
 
-    /* pass nullptr as the mesh because we are not going to use it */
-    std::shared_ptr<dart::dynamics::MeshShape> mesh(new dart::dynamics::MeshShape(Eigen::Vector3d(1., 1., 1.), nullptr));
-    auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(mesh);
-    auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, nullptr);
-    CORRADE_VERIFY(!shapeDataAll);
+        /* pass nullptr as the mesh because we are not going to use it */
+        std::shared_ptr<dart::dynamics::MeshShape> mesh(new dart::dynamics::MeshShape(Eigen::Vector3d(1., 1., 1.), nullptr));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(mesh);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, nullptr);
+        CORRADE_VERIFY(!shapeDataAll);
+    }
+    {
+        /* load AssimpImporter */
+        PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
+        std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
+        CORRADE_VERIFY(importer);
+        /* MeshShape */
+        dart::dynamics::SkeletonPtr tmpSkel = dart::dynamics::Skeleton::create("MeshShape");
+
+        dart::dynamics::BodyNodePtr bn = tmpSkel->createJointAndBodyNodePair<dart::dynamics::WeldJoint>(
+            nullptr, dart::dynamics::WeldJoint::Properties(), dart::dynamics::BodyNode::AspectProperties("MeshShapeBody")).second;
+
+        aiScene* noMeshScene = new aiScene;
+        std::shared_ptr<dart::dynamics::MeshShape> mesh(new dart::dynamics::MeshShape(Eigen::Vector3d(1., 1., 1.), noMeshScene));
+        auto shapeNode = bn->createShapeNodeWith<dart::dynamics::VisualAspect, dart::dynamics::CollisionAspect, dart::dynamics::DynamicsAspect>(mesh);
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        CORRADE_VERIFY(!shapeDataAll);
+    }
+    #if DART_URDF
+    #if DART_MAJOR_VERSION == 6
+    dart::utils::DartLoader loader;
+    #else
+    dart::io::DartLoader loader;
+    #endif
+    {
+        PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
+        std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
+        CORRADE_VERIFY(importer);
+
+        const std::string filename = Utility::Directory::join(DARTINTEGRATION_TEST_DIR, "urdf/test_multi_mesh.urdf");
+        auto tmp_skel = loader.parseSkeleton(filename);
+
+        auto shapeNode = tmp_skel->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0];
+        const aiScene* assimpScene = std::static_pointer_cast<dart::dynamics::MeshShape>(shapeNode->getShape())->getMesh();
+        CORRADE_VERIFY(assimpScene);
+
+        /* change mesh primitive type in order to produce failure */
+        aiMesh* mesh = assimpScene->mMeshes[0];
+        mesh->mPrimitiveTypes = aiPrimitiveType::aiPrimitiveType_POLYGON;
+
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        CORRADE_VERIFY(!shapeDataAll);
+    }
+    {
+        PluginManager::Manager<Trade::AbstractImporter> manager{MAGNUM_PLUGINS_IMPORTER_DIR};
+        std::unique_ptr<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AssimpImporter");
+        CORRADE_VERIFY(importer);
+
+        const std::string filename = Utility::Directory::join(DARTINTEGRATION_TEST_DIR, "urdf/test_multi_mesh.urdf");
+        auto tmp_skel = loader.parseSkeleton(filename);
+
+        auto shapeNode = tmp_skel->getBodyNode(0)->getShapeNodesWith<dart::dynamics::VisualAspect>()[0];
+        auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shapeNode->getShape());
+
+        /* check dart::dynamics::MeshShape::SHAPE_COLOR */
+        meshShape->setColorMode(dart::dynamics::MeshShape::SHAPE_COLOR);
+
+        auto shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        CORRADE_VERIFY(shapeDataAll);
+
+        /* check dart::dynamics::MeshShape::COLOR_INDEX when no colors available */
+        meshShape->setColorMode(dart::dynamics::MeshShape::COLOR_INDEX);
+
+        shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        CORRADE_VERIFY(shapeDataAll);
+
+        /* check dart::dynamics::MeshShape::COLOR_INDEX with colors */
+        const aiScene* assimpScene = meshShape->getMesh();
+        aiMesh* mesh = assimpScene->mMeshes[0];
+        /* add one color to aiMesh */
+        mesh->mColors[0] = new aiColor4D;
+        mesh = assimpScene->mMeshes[1];
+        /* add one color to aiMesh */
+        mesh->mColors[0] = new aiColor4D;
+
+        meshShape->setColorMode(dart::dynamics::MeshShape::COLOR_INDEX);
+        /* set color index higher than the one available */
+        meshShape->setColorIndex(1);
+
+        shapeDataAll = convertShapeNode(*shapeNode, ShapeLoadType::All, importer.get());
+        CORRADE_VERIFY(shapeDataAll);
+    }
+    #endif
 }
 
 void ConvertShapeNodeTest::unsupportedShapes() {

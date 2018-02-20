@@ -135,8 +135,10 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
             new(&shapeData.meshes[0]) Trade::MeshData3D{Primitives::Icosphere::solid(5)};
         }
     } else if((getPrimitive || getMesh || getMaterial) && shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
-        if (!importer)
+        if (!importer) {
+            Error{} << "DartIntegration::convertShapeNode(): AssimpImporter is not available and you are trying to load a dart::dynamics::MeshShape";
             return Containers::NullOpt;
+        }
         auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
 
         if(getPrimitive) {
@@ -149,8 +151,10 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         std::string meshPath = Utility::Directory::path(meshShape->getMeshPath());
 
         bool loaded = importer->openState(aiMesh, meshPath);
-        if(!loaded || importer->mesh3DCount() < 1)
+        if(!loaded || importer->mesh3DCount() < 1) {
+            Error{} << "DartIntegration::convertShapeNode(): Could not load aiScene or there is no mesh in it";
             return Containers::NullOpt;
+        }
 
         UnsignedInt meshesCount = 0;
         for(UnsignedInt i = 0; i < importer->object3DCount(); i++) {
@@ -170,8 +174,15 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
             auto meshData3D = dynamic_cast<Trade::MeshObjectData3D*>(importer->object3D(i).release());
             if(meshData3D) {
                 Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(meshData3D->instance());
-                if(!meshData)
+                if(!meshData){
+                    /* fix for seg-faults */
+                    for(UnsignedInt k = j; k < meshesCount; k++) {
+                        new(&materials[k]) Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
+                        new(&meshes[k]) Trade::MeshData3D{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), std::vector<std::vector<Vector3>>(1, std::vector<Vector3>()), std::vector<std::vector<Vector3>>(), std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
+                    }
+                    Error{} << "DartIntegration::convertShapeNode(): Could not load mesh with index" << meshData3D->instance();
                     return Containers::NullOpt;
+                }
 
                 if(getMaterial) {
                     auto colorMode = meshShape->getColorMode();
@@ -182,14 +193,24 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                             new(&materials[j]) Trade::PhongMaterialData{std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()))};
                         }
                         else if(colorMode == dart::dynamics::MeshShape::ColorMode::COLOR_INDEX) {
-                            /* @todo: check if index is within bounds */
                             /* get diffuse color from Mesh color */
-                            Color4 meshColor = meshData->colors(0)[meshShape->getColorIndex()];
-                            new(&materials[j]) Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
-                            materials[j].diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
-                            /* default colors for ambient (black) and specular (white) */
-                            materials[j].ambientColor() = Vector3{0.f, 0.f, 0.f};
-                            materials[j].specularColor() = Vector3{1.f, 1.f, 1.f};
+                            if(meshData->hasColors()) {
+                                /* use max index if MeshShape color index is bigger than available;
+                                 * this is the behavior described in Dart
+                                 */
+                                Int colorIndex = (static_cast<UnsignedInt>(meshShape->getColorIndex())>=meshData->colors(0).size()) ? meshData->colors(0).size()-1 : meshShape->getColorIndex();
+                                Color4 meshColor = meshData->colors(0)[colorIndex];
+                                new(&materials[j]) Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
+                                materials[j].diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);
+                                /* default colors for ambient (black) and specular (white) */
+                                materials[j].ambientColor() = Vector3{0.f, 0.f, 0.f};
+                                materials[j].specularColor() = Vector3{1.f, 1.f, 1.f};
+                            }
+                            /* fallback to SHAPE_COLOR if MeshData has no colors */
+                            else {
+                                Warning{} << "DartIntegration::convertShapeNode(): Assimp mesh has no colors. Falling back to SHAPE_COLOR mode";
+                                new(&materials[j]) Trade::PhongMaterialData{std::move(nodeMaterial)};
+                            }
                         }
                         else if (colorMode == dart::dynamics::MeshShape::ColorMode::SHAPE_COLOR) {
                             new(&materials[j]) Trade::PhongMaterialData{std::move(nodeMaterial)};

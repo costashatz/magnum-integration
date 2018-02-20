@@ -126,18 +126,15 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
 
     ConvertShapeTypes loadType;
     if(firstTime)
-        loadType |= ConvertShapeType::All;
-    if(getMaterial)
-        loadType |= ConvertShapeType::Material;
-    if(getPrimitive)
-        loadType |= ConvertShapeType::Primitive;
-    if(getMesh)
-        loadType |= ConvertShapeType::Mesh;
-
-    /* if first time we need to get everything */
-    getMaterial = firstTime || getMaterial;
-    getPrimitive = firstTime || getPrimitive;
-    getMesh = firstTime || getMesh;
+        loadType = ConvertShapeType::All;
+    else {
+        if(getMaterial)
+            loadType |= ConvertShapeType::Material;
+        if(getPrimitive)
+            loadType |= ConvertShapeType::Primitive;
+        if(getMesh)
+            loadType |= ConvertShapeType::Mesh;
+    }
 
     Containers::Optional<ShapeData> shapeData = convertShapeNode(shapeNode, loadType, importer);
 
@@ -151,7 +148,7 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
         _drawData = DrawData{{}, {}, {}, {}, {}, Vector3{1.f, 1.f, 1.f}};
     }
 
-    if(getMaterial) {
+    if(loadType & ConvertShapeType::Material) {
         /* copy material data */
         _drawData->materials = std::move(shapeData->materials);
 
@@ -177,38 +174,34 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
         }
     }
 
-    /* get meshes and/or scaling */
-    if(getPrimitive || getMesh) {
-        if (getPrimitive) {
-            /* get scaling */
-            _drawData->scaling = shapeData->scaling;
-        }
+    /* get scaling */
+    if (loadType & ConvertShapeType::Primitive) {
+        _drawData->scaling = shapeData->scaling;
+    }
 
-        /* if needed, create the meshes */
-        bool createMeshes = firstTime || (getMesh && (shape->getType() == dart::dynamics::MeshShape::getStaticType() || shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()));
-        if (createMeshes) {
-            _drawData->meshes = Containers::Array<Mesh>(Containers::NoInit, shapeData->meshes.size());
-            _drawData->vertexBuffers = Containers::Array<Buffer>(shapeData->meshes.size());
-            _drawData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(shapeData->meshes.size());
+    /* get meshes */
+    if(loadType & ConvertShapeType::Mesh) {
+        _drawData->meshes = Containers::Array<Mesh>(Containers::NoInit, shapeData->meshes.size());
+        _drawData->vertexBuffers = Containers::Array<Buffer>(shapeData->meshes.size());
+        _drawData->indexBuffers = Containers::Array<Containers::Optional<Buffer>>(shapeData->meshes.size());
 
-            for(UnsignedInt i = 0; i < shapeData->meshes.size(); i++) {
-                Trade::MeshData3D meshData = std::move(shapeData->meshes[i]);
-                /* Create the mesh */
-                Mesh mesh{NoCreate};
-                std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
-                std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
+        for(UnsignedInt i = 0; i < shapeData->meshes.size(); i++) {
+            Trade::MeshData3D meshData = std::move(shapeData->meshes[i]);
+            /* Create the mesh */
+            Mesh mesh{NoCreate};
+            std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+            std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-                new(&_drawData->meshes[i]) Mesh{std::move(mesh)};
-                _drawData->vertexBuffers[i] = std::move(*vertexBuffer.release());
-                if(indexBuffer)
-                    _drawData->indexBuffers[i] = std::move(*indexBuffer.release());
-            }
+            new(&_drawData->meshes[i]) Mesh{std::move(mesh)};
+            _drawData->vertexBuffers[i] = std::move(*vertexBuffer.release());
+            if(indexBuffer)
+                _drawData->indexBuffers[i] = std::move(*indexBuffer.release());
         }
     }
 
     /* If we got here, everything went OK;
      * update flag for rendering */
-    _updatedMesh = getMaterial || getPrimitive || getMesh;
+    _updatedMesh = firstTime || getMaterial || getPrimitive || getMesh;
 
     return true;
 }

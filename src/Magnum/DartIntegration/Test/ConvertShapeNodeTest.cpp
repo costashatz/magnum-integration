@@ -478,7 +478,7 @@ void ConvertShapeNodeTest::pendulum() {
         CORRADE_COMPARE(shapeDataPrimitive->meshes.size(), 0);
         CORRADE_COMPARE(shapeDataPrimitive->materials.size(), 0);
 
-        CORRADE_COMPARE(shapeDataMesh->meshes.size(), 0);
+        CORRADE_COMPARE(shapeDataMesh->meshes.size(), 1);
         CORRADE_COMPARE(shapeDataMesh->materials.size(), 0);
 
         CORRADE_COMPARE(shapeDataAll->materials.size(), 1);

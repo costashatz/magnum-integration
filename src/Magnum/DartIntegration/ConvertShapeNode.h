@@ -88,10 +88,10 @@ enum class ConvertShapeType: unsigned int {
     Material = 1 << 0,
     /* @brief Load scaling information */
     Primitive = 1 << 1,
-    /* @brief Load full meshes; this applies only to dart::dynamics::MeshShape and dart::dynamics::SoftMeshShape */
+    /* @brief Load full meshes */
     Mesh = 1 << 2,
     /* @brief Load everything */
-    All = 1 << 3
+    All = Material | Primitive | Mesh
 };
 
 typedef Containers::EnumSet<ConvertShapeType> ConvertShapeTypes;

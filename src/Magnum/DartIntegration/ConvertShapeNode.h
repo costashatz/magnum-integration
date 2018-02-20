@@ -111,6 +111,11 @@ The following DART shapes are not yet supported:
 -   `MultiSphereConvexHullShape`
 -   `PlaneShape` (this is an infinite plane with normal)
 
+@attention
+Soft meshes should be drawn with @ref Renderer::Feature::FaceCulling enabled
+as each triangle is drawn twice (once with the original orientation and once
+with the reversed orientation)
+
 @experimental
 */
 Containers::Optional<ShapeData> MAGNUM_DARTINTEGRATION_EXPORT convertShapeNode(dart::dynamics::ShapeNode& shapeNode, ShapeLoadTypes loadType, Trade::AbstractImporter* importer = nullptr);

@@ -40,6 +40,8 @@
 #include <Corrade/Utility/Directory.h>
 
 #include <Magnum/Mesh.h>
+#include <Magnum/MeshTools/CombineIndexedArrays.h>
+#include <Magnum/MeshTools/GenerateFlatNormals.h>
 #include <Magnum/Primitives/Capsule.h>
 #include <Magnum/Primitives/Cube.h>
 #include <Magnum/Primitives/Cylinder.h>
@@ -53,41 +55,6 @@
 #include <Magnum/Trade/TextureData.h>
 
 namespace Magnum { namespace DartIntegration {
-
-static Eigen::Vector3d normalFromVertex(const dart::dynamics::SoftBodyNode* bn,
-                                        const Eigen::Vector3i& face,
-                                        std::size_t v)
-{
-  const Eigen::Vector3d& v0 = bn->getPointMass(face[v])->getLocalPosition();
-  const Eigen::Vector3d& v1 = bn->getPointMass(face[(v+1)%3])->getLocalPosition();
-  const Eigen::Vector3d& v2 = bn->getPointMass(face[(v+2)%3])->getLocalPosition();
-
-  const Eigen::Vector3d dv1 = v1-v0;
-  const Eigen::Vector3d dv2 = v2-v0;
-  const Eigen::Vector3d n = dv1.cross(dv2);
-
-  double weight = n.norm()/(dv1.norm()*dv2.norm());
-  weight = std::max( -1.0, std::min( 1.0, weight) );
-
-  return n.normalized() * asin(weight);
-}
-
-static void computeNormals(std::vector<Eigen::Vector3d>& normals,
-                           const dart::dynamics::SoftBodyNode* bn)
-{
-  for(std::size_t i=0; i<normals.size(); ++i)
-    normals[i] = Eigen::Vector3d::Zero();
-
-  for(std::size_t i=0; i<bn->getNumFaces(); ++i)
-  {
-    const Eigen::Vector3i& face = bn->getFace(i);
-    for(std::size_t j=0; j<3; ++j)
-      normals[face[j]] += normalFromVertex(bn, face, j);
-  }
-
-  for(std::size_t i=0; i<normals.size(); ++i)
-    normals[i].normalize();
-}
 
 Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shapeNode, ShapeLoadTypes loadType, Trade::AbstractImporter* importer) {
     dart::dynamics::ShapePtr shape = shapeNode.getShape();
@@ -284,29 +251,49 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         /* Close any file if opened */
         importer->close();
     } else if(getMesh && shape->getType() == dart::dynamics::SoftMeshShape::getStaticType()) {
-        /* Soft meshes contain should be drawn without face culling */
+        /* Soft meshes should be drawn with face culling */
         auto meshShape = std::static_pointer_cast<dart::dynamics::SoftMeshShape>(shape);
 
         const dart::dynamics::SoftBodyNode* bn = meshShape->getSoftBodyNode();
 
-        std::vector<Eigen::Vector3d> eigNormals(bn->getNumPointMasses());
-        computeNormals(eigNormals, bn);
-
+        std::vector<UnsignedInt> indices;
         std::vector<std::vector<Vector3>> positions, normals;
         positions.push_back(std::vector<Vector3>());
         normals.push_back(std::vector<Vector3>());
 
-        for(UnsignedInt i = 0; i < bn->getNumFaces(); ++i) {
-            const Eigen::Vector3i& F = bn->getFace(i);
-            for(UnsignedInt j = 0; j < 3; ++j) {
-                const Eigen::Vector3d& pos = bn->getPointMass(F[j])->getLocalPosition();
-                positions[0].push_back(Vector3(pos(0), pos(1), pos(2)));
-                const Eigen::Vector3d& norm = eigNormals[F[j]];
-                normals[0].push_back(Vector3(norm(0), norm(1), norm(2)));
-            }
+        /* Get vertex positions from SoftBody */
+        for(UnsignedInt i = 0; i < bn->getNumPointMasses(); ++i) {
+            const Eigen::Vector3d& pos = bn->getPointMass(i)->getLocalPosition();
+            positions[0].push_back(Vector3(pos(0), pos(1), pos(2)));
         }
 
-        Trade::MeshData3D meshData{MeshPrimitive::Triangles, std::vector<UnsignedInt>(), positions, normals, std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
+        /* Add each face twice; once with the original orientation
+         * and once with reversed orientation
+         */
+        for(UnsignedInt i = 0; i < bn->getNumFaces(); ++i) {
+            const Eigen::Vector3i& F = bn->getFace(i);
+            /* add original face */
+            indices.push_back(F[0]);
+            indices.push_back(F[1]);
+            indices.push_back(F[2]);
+            /* add reversed face */
+            indices.push_back(F[2]);
+            indices.push_back(F[1]);
+            indices.push_back(F[0]);
+        }
+
+        /* Generate flat normals */
+        std::vector<UnsignedInt> normalIndices;
+        std::tie(normalIndices, normals[0]) = MeshTools::generateFlatNormals(indices, positions[0]);
+
+        /* Combine normal and vertex indices */
+        std::vector<UnsignedInt> finalIndices = MeshTools::combineIndexedArrays(
+            std::make_pair(std::cref(indices), std::ref(positions[0])),
+            std::make_pair(std::cref(normalIndices), std::ref(normals[0]))
+        );
+
+        /* Create the mesh data */
+        Trade::MeshData3D meshData{MeshPrimitive::Triangles, finalIndices, positions, normals, std::vector<std::vector<Vector2>>(), std::vector<std::vector<Color4>>()};
 
         shapeData.meshes = Containers::Array<Trade::MeshData3D>(Containers::NoInit, 1);
         new(&shapeData.meshes[0]) Trade::MeshData3D{std::move(meshData)};

@@ -26,6 +26,11 @@
 
 #include "World.h"
 
+#include <Magnum/Buffer.h>
+#include <Magnum/Mesh.h>
+#include <Magnum/Texture.h>
+#include <Magnum/Trade/PhongMaterialData.h>
+
 namespace Magnum { namespace DartIntegration {
 World::World(SceneGraph::AbstractBasicObject3D<Float>& object, std::shared_ptr<dart::simulation::World> world): _object(object), _manager{MAGNUM_PLUGINS_IMPORTER_DIR}, _dartWorld(world) {
     /* load Assimp importer */
@@ -60,11 +65,10 @@ World& World::step() {
 World& World::clearUnusedObjects() {
     std::vector<dart::dynamics::Frame*> unusedFrames;
 
-    /* Find unutilized objects */
+    /* Find unused objects */
     for(auto& object_pair: _dartToMagnum)
     {
-        auto object = object_pair.second;
-        if(object && !object->isUpdated())
+        if(object_pair.second && !object_pair.second->isUpdated())
             unusedFrames.push_back(object_pair.first);
     }
 
@@ -73,36 +77,32 @@ World& World::clearUnusedObjects() {
     for(dart::dynamics::Frame* frame: unusedFrames)
     {
         auto it = _dartToMagnum.find(frame);
-        _toRemove.emplace_back(it->second);
+        _toRemove.emplace_back(std::move(it->second));
         _dartToMagnum.erase(it);
     }
 
     return *this;
 }
 
-std::vector<std::shared_ptr<Object>> World::unusedObjects() {
-    return _toRemove;
-}
-
-std::vector<std::shared_ptr<Object>> World::objects() {
-    std::vector<std::shared_ptr<Object>> objs;
+std::vector<std::reference_wrapper<Object>> World::objects() {
+    std::vector<std::reference_wrapper<Object>> objs;
     for(auto& obj: _dartToMagnum)
-        objs.emplace_back(obj.second);
+        objs.emplace_back(std::ref(*obj.second));
 
     return objs;
 }
 
-std::vector<std::shared_ptr<Object>> World::shapeObjects() {
-    std::vector<std::shared_ptr<Object>> objs;
+std::vector<std::reference_wrapper<Object>> World::shapeObjects() {
+    std::vector<std::reference_wrapper<Object>> objs;
     for(auto& obj: _dartToMagnum)
         if(obj.second->shapeNode())
-            objs.emplace_back(obj.second);
+            objs.emplace_back(std::ref(*obj.second));
 
     return objs;
 }
 
-std::vector<std::shared_ptr<Object>> World::updatedShapeObjects() {
-    std::vector<std::shared_ptr<Object>> objs;
+std::vector<Object*> World::updatedShapeObjects() {
+    std::vector<Object*> objs;
     objs.insert(objs.end(), _updatedShapeObjects.begin(), _updatedShapeObjects.end());
     return objs;
 }
@@ -112,17 +112,17 @@ World& World::clearUpdatedShapeObjects() {
     return *this;
 }
 
-std::vector<std::shared_ptr<Object>> World::bodyObjects() {
-    std::vector<std::shared_ptr<Object>> objs;
+std::vector<std::reference_wrapper<Object>> World::bodyObjects() {
+    std::vector<std::reference_wrapper<Object>> objs;
     for(auto& obj: _dartToMagnum)
         if(obj.second->bodyNode())
-            objs.emplace_back(obj.second);
+            objs.emplace_back(std::ref(*obj.second));
 
     return objs;
 }
 
-std::shared_ptr<Object> World::objectFromDartFrame(dart::dynamics::Frame* frame) {
-    return _dartToMagnum[frame];
+std::reference_wrapper<Object> World::objectFromDartFrame(dart::dynamics::Frame* frame) {
+    return std::ref(*_dartToMagnum[frame]);
 }
 
 void World::parseSkeleton(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::Skeleton& skel){
@@ -156,7 +156,7 @@ void World::parseBodyNodeRecursive(SceneGraph::AbstractBasicObject3D<Float>& par
         }
         it.first->second->update(_importer.get());
         if(it.first->second->hasUpdatedMesh())
-            _updatedShapeObjects.insert(it.first->second);
+            _updatedShapeObjects.insert(it.first->second.get());
     }
 
     /* parse the children recursively */

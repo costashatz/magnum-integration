@@ -267,7 +267,7 @@ void DartIntegrationTest::pendulum() {
     dartWorld->refresh();
 
     auto objects = dartWorld->objects();
-    auto objTest = dartWorld->objectFromDartFrame(bn->getShapeNodesWith<dart::dynamics::VisualAspect>().back());
+    Object& objTest = dartWorld->objectFromDartFrame(bn->getShapeNodesWith<dart::dynamics::VisualAspect>().back());
 
     Eigen::Isometry3d trans = bn->getShapeNodesWith<dart::dynamics::VisualAspect>().back()->getTransform();
 
@@ -284,7 +284,7 @@ void DartIntegrationTest::pendulum() {
     transformation = Math::Matrix4<Float>::translation(t) * Math::Matrix4<Float>::rotation(theta, u);
 
     CORRADE_VERIFY(objects.size() == 15);
-    CORRADE_COMPARE(objTest->object().absoluteTransformationMatrix(), transformation);
+    CORRADE_COMPARE(objTest.object().absoluteTransformationMatrix(), transformation);
 }
 
 void DartIntegrationTest::soft() {
@@ -331,10 +331,10 @@ void DartIntegrationTest::urdf() {
 
     std::shared_ptr<World> dartWorld = std::make_shared<World>(*obj, world);
 
-    for(auto& dartObj: dartWorld->shapeObjects()) {
-        auto shape = dartObj->shapeNode()->getShape();
+    for(Object& dartObj: dartWorld->shapeObjects()) {
+        auto shape = dartObj.shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
-        DrawData& mydata = dartObj->drawData();
+        DrawData& mydata = dartObj.drawData();
         CORRADE_VERIFY(mydata.meshes.size());
         CORRADE_VERIFY(mydata.vertexBuffers.size());
         CORRADE_VERIFY(mydata.indexBuffers.size());
@@ -379,11 +379,11 @@ void DartIntegrationTest::multiMesh() {
     }
 
     CORRADE_COMPARE(dartWorld->shapeObjects().size(), 1);
-    auto dartObj = dartWorld->shapeObjects()[0];
+    Object& dartObj = dartWorld->shapeObjects()[0];
 
-    auto shape = dartObj->shapeNode()->getShape();
+    auto shape = dartObj.shapeNode()->getShape();
     CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
-    DrawData& mydata = dartObj->drawData();
+    DrawData& mydata = dartObj.drawData();
     CORRADE_COMPARE(mydata.meshes.size(), 2);
     CORRADE_COMPARE(mydata.meshes.size(), mydata.vertexBuffers.size());
     CORRADE_COMPARE(mydata.meshes.size(), mydata.indexBuffers.size());
@@ -424,10 +424,10 @@ void DartIntegrationTest::texture() {
         }
     }
 
-    for(auto& dartObj: dartWorld->shapeObjects()) {
-        auto shape = dartObj->shapeNode()->getShape();
+    for(Object& dartObj: dartWorld->shapeObjects()) {
+        auto shape = dartObj.shapeNode()->getShape();
         CORRADE_COMPARE(shape->getType(), dart::dynamics::MeshShape::getStaticType());
-        DrawData& mydata = dartObj->drawData();
+        DrawData& mydata = dartObj.drawData();
         CORRADE_VERIFY(mydata.meshes.size());
         CORRADE_VERIFY(mydata.vertexBuffers.size());
         CORRADE_VERIFY(mydata.indexBuffers.size());

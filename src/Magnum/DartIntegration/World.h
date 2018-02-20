@@ -124,11 +124,11 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
             objectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent) -> SceneGraph::AbstractBasicObject3D<Float>* {
                 return new T{static_cast<T*>(&parent)};
             };
-            dartObjectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::BodyNode* body) -> std::shared_ptr<Object> {
-                return std::make_shared<Object>(static_cast<T&>(parent), body);
+            dartObjectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::BodyNode* body) -> std::unique_ptr<Object> {
+                return std::unique_ptr<Object>(new Object{static_cast<T&>(parent), body});
             };
-            dartShapeObjectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::ShapeNode* node) -> std::shared_ptr<Object> {
-                return std::make_shared<Object>(static_cast<T&>(parent), node);
+            dartShapeObjectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::ShapeNode* node) -> std::unique_ptr<Object> {
+                return std::unique_ptr<Object>(new Object{static_cast<T&>(parent), node});
             };
 
             refresh();
@@ -148,25 +148,25 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Get unused objects; all objects that were not updated during the last refresh call
          * Note: this list will be cleared once a new refresh call is made
          */
-        std::vector<std::shared_ptr<Object>> unusedObjects();
+        std::vector<std::shared_ptr<Object>> unusedObjects() { return _toRemove; }
 
         /** @brief Get all @ref Objects */
-        std::vector<std::shared_ptr<Object>> objects();
+        std::vector<std::reference_wrapper<Object>> objects();
 
         /** @brief Get all @ref Objects that have shapes */
-        std::vector<std::shared_ptr<Object>> shapeObjects();
+        std::vector<std::reference_wrapper<Object>> shapeObjects();
 
         /** @brief Get all @ref Objects that have updated meshes */
-        std::vector<std::shared_ptr<Object>> updatedShapeObjects();
+        std::vector<Object*> updatedShapeObjects();
 
         /** @brief Clear list of updated shape @ref Objects */
         World& clearUpdatedShapeObjects();
 
         /** @brief Get all @ref Objects that do not have shapes */
-        std::vector<std::shared_ptr<Object>> bodyObjects();
+        std::vector<std::reference_wrapper<Object>> bodyObjects();
 
         /** @brief Helper function to get @ref Object from a DART Frame/BodyNode/ShapeNode */
-        std::shared_ptr<Object> objectFromDartFrame(dart::dynamics::Frame* frame);
+        std::reference_wrapper<Object> objectFromDartFrame(dart::dynamics::Frame* frame);
 
         /** @brief Get the dart::simulation::World object
          * for making DART specific changes/updates
@@ -181,10 +181,10 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         SceneGraph::AbstractBasicObject3D<Float>*(*objectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent);
 
         /** @brief Function to create new @ref Object without shape with correct parent type */
-        std::shared_ptr<Object>(*dartObjectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::BodyNode* body);
+        std::unique_ptr<Object>(*dartObjectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::BodyNode* body);
 
         /** @brief Function to create new @ref Object with shape with correct parent type */
-        std::shared_ptr<Object>(*dartShapeObjectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::ShapeNode* node);
+        std::unique_ptr<Object>(*dartShapeObjectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::ShapeNode* node);
 
         /** @brief Parse DART Skeleton and create/update shapes */
         void parseSkeleton(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::Skeleton& skel);
@@ -196,9 +196,9 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         PluginManager::Manager<Trade::AbstractImporter> _manager;
         std::unique_ptr<Trade::AbstractImporter> _importer;
         std::shared_ptr<dart::simulation::World> _dartWorld;
-        std::unordered_map<dart::dynamics::Frame*, std::shared_ptr<Object>> _dartToMagnum;
+        std::unordered_map<dart::dynamics::Frame*, std::unique_ptr<Object>> _dartToMagnum;
         std::vector<std::shared_ptr<Object>> _toRemove;
-        std::unordered_set<std::shared_ptr<Object>> _updatedShapeObjects;
+        std::unordered_set<Object*> _updatedShapeObjects;
 };
 
 }}

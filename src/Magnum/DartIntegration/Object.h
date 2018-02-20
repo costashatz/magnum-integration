@@ -35,12 +35,8 @@
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/Optional.h>
 
-#include <Magnum/Buffer.h>
-#include <Magnum/Mesh.h>
-#include <Magnum/Texture.h>
 #include <Magnum/SceneGraph/AbstractFeature.h>
 #include <Magnum/SceneGraph/AbstractTranslationRotation3D.h>
-#include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Trade/Trade.h>
 
 #include "Magnum/DartIntegration/visibility.h"
@@ -59,7 +55,7 @@ namespace Magnum { namespace DartIntegration {
 */
 struct DrawData {
     #ifndef DOXYGEN_GENERATING_OUTPUT
-    explicit DrawData(Containers::Array<Mesh> meshes, Containers::Array<Buffer> vertexBuffers, Containers::Array<Containers::Optional<Buffer>> indexBuffers, Containers::Array<Trade::PhongMaterialData> materials, Containers::Array<Containers::Optional<Texture2D>> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f}): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)}, scaling(scaling) {}
+    explicit DrawData(Containers::Array<Mesh> meshes, Containers::Array<Buffer> vertexBuffers, Containers::Array<Containers::Optional<Buffer>> indexBuffers, Containers::Array<Trade::PhongMaterialData> materials, Containers::Array<Containers::Optional<Texture2D>> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f});
     #endif
     /** @brief Meshes */
     Containers::Array<Mesh> meshes;
@@ -142,7 +138,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         bool hasUpdatedMesh() { return _updatedMesh; }
 
         /** @brief Get DrawData */
-        DrawData& drawData();
+        DrawData& drawData() { return *_drawData; }
 
         /** @brief Underlying DART `ShapeNode` */
         dart::dynamics::ShapeNode* shapeNode() { return _node; }
@@ -158,7 +154,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT Object: public SceneGraph::AbstractBasicFeat
         SceneGraph::AbstractBasicTranslationRotation3D<Float>& _transformation;
         dart::dynamics::ShapeNode* _node;
         dart::dynamics::BodyNode* _body;
-        std::unique_ptr<DrawData> _drawData;
+        Containers::Optional<DrawData> _drawData;
         bool _updated, _updatedMesh;
 };
 

@@ -83,7 +83,7 @@ struct ShapeData {
 What should be loaded from the dart::dynamics::ShapeNode, see @ref convertShapeNode()
 @experimental
 */
-enum class ConvertShapeType : unsigned int {
+enum class ConvertShapeType: unsigned int {
     /* @brief Load only material information */
     Material = 1 << 0,
     /* @brief Load scaling information */

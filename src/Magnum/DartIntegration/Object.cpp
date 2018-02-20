@@ -24,7 +24,6 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-#include "ConvertShapeNode.h"
 #include "Object.h"
 
 #include <dart/dynamics/BodyNode.hpp>
@@ -35,7 +34,10 @@
 #include <Corrade/PluginManager/Manager.h>
 #include <Corrade/Utility/Directory.h>
 
+#include <Magnum/Buffer.h>
+#include <Magnum/Mesh.h>
 #include <Magnum/PixelFormat.h>
+#include <Magnum/Texture.h>
 #include <Magnum/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
 #include <Magnum/Trade/AbstractImporter.h>
@@ -44,8 +46,13 @@
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Trade/TextureData.h>
 
+#include "Magnum/DartIntegration/ConvertShapeNode.h"
 
 namespace Magnum { namespace DartIntegration {
+
+#ifndef DOXYGEN_GENERATING_OUTPUT
+DrawData::DrawData(Containers::Array<Mesh> meshes, Containers::Array<Buffer> vertexBuffers, Containers::Array<Containers::Optional<Buffer>> indexBuffers, Containers::Array<Trade::PhongMaterialData> materials, Containers::Array<Containers::Optional<Texture2D>> textures, const Vector3& scaling): meshes{std::move(meshes)}, vertexBuffers{std::move(vertexBuffers)}, indexBuffers{std::move(indexBuffers)}, materials{std::move(materials)}, textures{std::move(textures)}, scaling(scaling) {}
+#endif
 
 Object::Object(SceneGraph::AbstractBasicObject3D<Float>& object, SceneGraph::AbstractBasicTranslationRotation3D<Float>& transformation, dart::dynamics::ShapeNode* node, dart::dynamics::BodyNode* body): SceneGraph::AbstractBasicFeature3D<Float>{object}, _transformation(transformation), _node{node}, _body{body}, _updated(false), _updatedMesh(false) {}
 
@@ -89,10 +96,6 @@ Object& Object::update(Trade::AbstractImporter* importer) {
     _updated = true;
 
     return *this;
-}
-
-DrawData& Object::drawData() {
-    return *_drawData;
 }
 
 bool Object::extractDrawData(Trade::AbstractImporter* importer) {
@@ -145,7 +148,7 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
     /* create the DrawData structure */
     if(firstTime){
         /* default scaling to (1,1,1) */
-        _drawData = std::unique_ptr<DrawData>(new DrawData{{}, {}, {}, {}, {}, Vector3{1.f, 1.f, 1.f}});
+        _drawData = DrawData{{}, {}, {}, {}, {}, Vector3{1.f, 1.f, 1.f}};
     }
 
     if(getMaterial) {
@@ -191,11 +194,11 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
             for(UnsignedInt i = 0; i < shapeData->meshes.size(); i++) {
                 Trade::MeshData3D meshData = std::move(shapeData->meshes[i]);
                 /* Create the mesh */
-                Containers::Optional<Mesh> mesh;
+                Mesh mesh{NoCreate};
                 std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
                 std::tie(mesh, vertexBuffer, indexBuffer) = MeshTools::compile(meshData, BufferUsage::StaticDraw);
 
-                new(&_drawData->meshes[i]) Mesh{std::move(*mesh)};
+                new(&_drawData->meshes[i]) Mesh{std::move(mesh)};
                 _drawData->vertexBuffers[i] = std::move(*vertexBuffer.release());
                 if(indexBuffer)
                     _drawData->indexBuffers[i] = std::move(*indexBuffer.release());

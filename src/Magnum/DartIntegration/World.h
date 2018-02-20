@@ -94,6 +94,9 @@ for(UnsignedInt i = 0; i < simulationSteps; i++) {
         // get unused/deleted shapes
         std::vector<std::shared_ptr<Object>> unusedObjects = world->unusedObjects();
 
+        // the user is expected to handle unused objects
+        // one possible handling would be to remove them
+        // from the parent scene
         deleteObjectsFromScene(unusedObjects);
 
         // get updated shapes;
@@ -117,7 +120,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
          * @param object    Parent object
          * @param skeleton  DART World shared pointer to parse
          */
-        template<class T> explicit World(T& object, std::shared_ptr<dart::simulation::World> world): _object(object), _manager{MAGNUM_PLUGINS_IMPORTER_DIR}, _dartWorld(world) {
+        template<class T> explicit World(T& object, std::shared_ptr<dart::simulation::World> world): World(static_cast<SceneGraph::AbstractBasicObject3D<Float>&>(object), world) {
             objectCreator = [](SceneGraph::AbstractBasicObject3D<Float>& parent) -> SceneGraph::AbstractBasicObject3D<Float>* {
                 return new T{static_cast<T*>(&parent)};
             };
@@ -130,6 +133,8 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
 
             refresh();
         }
+
+        ~World();
 
         /** @brief Refresh/regenerate meshes for all bodies in DART world */
         World& refresh();
@@ -166,9 +171,12 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Get the dart::simulation::World object
          * for making DART specific changes/updates
          */
-        std::shared_ptr<dart::simulation::World> world();
+        std::shared_ptr<dart::simulation::World> world() { return _dartWorld; }
 
     private:
+        /** @brief Non-templated constructor */
+        explicit World(SceneGraph::AbstractBasicObject3D<Float>& object, std::shared_ptr<dart::simulation::World> world);
+
         /** @brief Function to create new @ref SceneGraph::AbstractBasicObject3D of correct type */
         SceneGraph::AbstractBasicObject3D<Float>*(*objectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent);
 
@@ -179,10 +187,10 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         std::shared_ptr<Object>(*dartShapeObjectCreator)(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::ShapeNode* node);
 
         /** @brief Parse DART Skeleton and create/update shapes */
-        template <class T> void parseSkeleton(T& parent, dart::dynamics::Skeleton& skel);
+        void parseSkeleton(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::Skeleton& skel);
 
         /** @brief Recursively parse DART BodyNode and all of its children */
-        template <class T> void parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn);
+        void parseBodyNodeRecursive(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::BodyNode& bn);
 
         SceneGraph::AbstractBasicObject3D<Float>& _object;
         PluginManager::Manager<Trade::AbstractImporter> _manager;
@@ -192,48 +200,6 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         std::vector<std::shared_ptr<Object>> _toRemove;
         std::unordered_set<std::shared_ptr<Object>> _updatedShapeObjects;
 };
-
-template <class T> void World::parseSkeleton(T& parent, dart::dynamics::Skeleton& skel){
-    for(size_t i = 0; i < skel.getNumTrees(); i++) {
-        parseBodyNodeRecursive(parent, *skel.getRootBodyNode(i));
-    }
-}
-
-template <class T> void World::parseBodyNodeRecursive(T& parent, dart::dynamics::BodyNode& bn) {
-    /** parse the BodyNode
-     * we care only about visuals
-     */
-    auto& visualShapes = bn.getShapeNodesWith<dart::dynamics::VisualAspect>();
-
-    /* create an object of the BodyNode to keep track of transformations */
-    SceneGraph::AbstractBasicObject3D<Float>* object = nullptr;
-    auto it = _dartToMagnum.insert(std::make_pair(static_cast<dart::dynamics::Frame*>(&bn), nullptr));
-    if (it.second) {
-        object = objectCreator(parent);
-        it.first->second = dartObjectCreator(*object, &bn);
-    }
-    else
-        object = static_cast<SceneGraph::AbstractBasicObject3D<Float>*>(&it.first->second->object());
-    it.first->second->update();
-    for (auto& shape : visualShapes) {
-        auto it = _dartToMagnum.insert(std::make_pair(static_cast<dart::dynamics::Frame*>(shape), nullptr));
-        if (it.second) {
-            /* create object for the ShapeNode to keep track of inner transformations */
-            auto shapeObj = objectCreator(*object);
-            it.first->second = dartShapeObjectCreator(*shapeObj, shape);
-        }
-        it.first->second->update(_importer.get());
-        if(it.first->second->hasUpdatedMesh())
-            _updatedShapeObjects.insert(it.first->second);
-    }
-
-    /* parse the children recursively */
-    std::size_t numChilds = bn.getNumChildBodyNodes();
-    for (std::size_t i = 0; i < numChilds; i++) {
-        /* pass as parent the newly created object */
-        parseBodyNodeRecursive(*object, *bn.getChildBodyNode(i));
-    }
-}
 
 }}
 

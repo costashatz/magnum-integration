@@ -197,7 +197,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                             /* use max index if MeshShape color index is bigger than available;
                                 * this is the behavior described in Dart
                                 */
-                            Int colorIndex = (static_cast<UnsignedInt>(meshShape->getColorIndex())>=meshData->colors(0).size()) ? meshData->colors(0).size()-1 : meshShape->getColorIndex();
+                            Int colorIndex = (static_cast<UnsignedInt>(meshShape->getColorIndex())>=meshData->colors(0).size()) ? meshData->colors(0).size()-1: meshShape->getColorIndex();
                             Color4 meshColor = meshData->colors(0)[colorIndex];
                             materials[j] = Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
                             materials[j]->diffuseColor() = Color3(meshColor[0], meshColor[1], meshColor[2]);

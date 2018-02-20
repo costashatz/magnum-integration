@@ -39,8 +39,10 @@
 #include <dart/dynamics/WeldJoint.hpp>
 #include <dart/simulation/World.hpp>
 #include <Corrade/Utility/Directory.h>
+#include <Magnum/Buffer.h>
 #include <Magnum/Mesh.h>
 #include <Magnum/OpenGLTester.h>
+#include <Magnum/Texture.h>
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.hpp>
 #include <Magnum/SceneGraph/SceneGraph.h>

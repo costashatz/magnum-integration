@@ -27,103 +27,144 @@
 #include "World.h"
 
 namespace Magnum { namespace DartIntegration {
-    World& World::refresh() {
-        if (!_dartWorld)
-            return *this;
-        /* clear update flags */
-        for(auto& obj : _dartToMagnum)
-            obj.second->clearUpdateFlag();
+World::World(SceneGraph::AbstractBasicObject3D<Float>& object, std::shared_ptr<dart::simulation::World> world): _object(object), _manager{MAGNUM_PLUGINS_IMPORTER_DIR}, _dartWorld(world) {
+    /* load Assimp importer */
+    _importer = _manager.loadAndInstantiate("AssimpImporter");
+}
 
-        /* load Assimp importer if needed */
-        if (!_importer)
-            _importer = _manager.loadAndInstantiate("AssimpImporter");
+World::~World() = default;
 
-        /* parse all skeletons in _dartWorld */
-        for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
-            parseSkeleton(_object, *_dartWorld->getSkeleton(i));
-        }
-
-        /* remove unused objects */
-        clearUnusedObjects();
-
+World& World::refresh() {
+    if (!_dartWorld)
         return *this;
+    /* clear update flags */
+    for(auto& obj: _dartToMagnum)
+        obj.second->clearUpdateFlag();
+
+    /* parse all skeletons in _dartWorld */
+    for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
+        parseSkeleton(_object, *_dartWorld->getSkeleton(i));
     }
 
-    World& World::step() {
-        _dartWorld->step();
-        return *this;
+    /* remove unused objects */
+    clearUnusedObjects();
+
+    return *this;
+}
+
+World& World::step() {
+    _dartWorld->step();
+    return *this;
+}
+
+World& World::clearUnusedObjects() {
+    std::vector<dart::dynamics::Frame*> unusedFrames;
+
+    /* Find unutilized objects */
+    for(auto& object_pair: _dartToMagnum)
+    {
+        auto object = object_pair.second;
+        if(object && !object->isUpdated())
+            unusedFrames.push_back(object_pair.first);
     }
 
-    World& World::clearUnusedObjects() {
-        std::vector<dart::dynamics::Frame*> unusedFrames;
-
-        /* Find unutilized objects */
-        for(auto& object_pair : _dartToMagnum)
-        {
-            auto object = object_pair.second;
-            if(object && !object->isUpdated())
-                unusedFrames.push_back(object_pair.first);
-        }
-
-        /* Clear unused Objects */
-        _toRemove.clear();
-        for(dart::dynamics::Frame* frame : unusedFrames)
-        {
-            auto it = _dartToMagnum.find(frame);
-            _toRemove.emplace_back(it->second);
-            /* @todo: Manage removal from scene */
-            _dartToMagnum.erase(it);
-        }
-
-        return *this;
+    /* Clear unused Objects */
+    _toRemove.clear();
+    for(dart::dynamics::Frame* frame: unusedFrames)
+    {
+        auto it = _dartToMagnum.find(frame);
+        _toRemove.emplace_back(it->second);
+        _dartToMagnum.erase(it);
     }
 
-    std::vector<std::shared_ptr<Object>> World::unusedObjects() {
-        return _toRemove;
-    }
+    return *this;
+}
 
-    std::vector<std::shared_ptr<Object>> World::objects() {
-        std::vector<std::shared_ptr<Object>> objs;
-        for(auto& obj : _dartToMagnum)
+std::vector<std::shared_ptr<Object>> World::unusedObjects() {
+    return _toRemove;
+}
+
+std::vector<std::shared_ptr<Object>> World::objects() {
+    std::vector<std::shared_ptr<Object>> objs;
+    for(auto& obj: _dartToMagnum)
+        objs.emplace_back(obj.second);
+
+    return objs;
+}
+
+std::vector<std::shared_ptr<Object>> World::shapeObjects() {
+    std::vector<std::shared_ptr<Object>> objs;
+    for(auto& obj: _dartToMagnum)
+        if(obj.second->shapeNode())
             objs.emplace_back(obj.second);
 
-        return objs;
+    return objs;
+}
+
+std::vector<std::shared_ptr<Object>> World::updatedShapeObjects() {
+    std::vector<std::shared_ptr<Object>> objs;
+    objs.insert(objs.end(), _updatedShapeObjects.begin(), _updatedShapeObjects.end());
+    return objs;
+}
+
+World& World::clearUpdatedShapeObjects() {
+    _updatedShapeObjects.clear();
+    return *this;
+}
+
+std::vector<std::shared_ptr<Object>> World::bodyObjects() {
+    std::vector<std::shared_ptr<Object>> objs;
+    for(auto& obj: _dartToMagnum)
+        if(obj.second->bodyNode())
+            objs.emplace_back(obj.second);
+
+    return objs;
+}
+
+std::shared_ptr<Object> World::objectFromDartFrame(dart::dynamics::Frame* frame) {
+    return _dartToMagnum[frame];
+}
+
+void World::parseSkeleton(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::Skeleton& skel){
+    for(size_t i = 0; i < skel.getNumTrees(); i++) {
+        parseBodyNodeRecursive(parent, *skel.getRootBodyNode(i));
+    }
+}
+
+void World::parseBodyNodeRecursive(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::BodyNode& bn) {
+    /** parse the BodyNode
+     * we care only about visuals
+     */
+    auto& visualShapes = bn.getShapeNodesWith<dart::dynamics::VisualAspect>();
+
+    /* create an object of the BodyNode to keep track of transformations */
+    SceneGraph::AbstractBasicObject3D<Float>* object = nullptr;
+    auto it = _dartToMagnum.insert(std::make_pair(static_cast<dart::dynamics::Frame*>(&bn), nullptr));
+    if (it.second) {
+        object = objectCreator(parent);
+        it.first->second = dartObjectCreator(*object, &bn);
+    }
+    else
+        object = static_cast<SceneGraph::AbstractBasicObject3D<Float>*>(&it.first->second->object());
+    it.first->second->update();
+    for (auto& shape: visualShapes) {
+        auto it = _dartToMagnum.insert(std::make_pair(static_cast<dart::dynamics::Frame*>(shape), nullptr));
+        if (it.second) {
+            /* create object for the ShapeNode to keep track of inner transformations */
+            auto shapeObj = objectCreator(*object);
+            it.first->second = dartShapeObjectCreator(*shapeObj, shape);
+        }
+        it.first->second->update(_importer.get());
+        if(it.first->second->hasUpdatedMesh())
+            _updatedShapeObjects.insert(it.first->second);
     }
 
-    std::vector<std::shared_ptr<Object>> World::shapeObjects() {
-        std::vector<std::shared_ptr<Object>> objs;
-        for(auto& obj : _dartToMagnum)
-            if(obj.second->shapeNode())
-                objs.emplace_back(obj.second);
-
-        return objs;
+    /* parse the children recursively */
+    std::size_t numChilds = bn.getNumChildBodyNodes();
+    for (std::size_t i = 0; i < numChilds; i++) {
+        /* pass as parent the newly created object */
+        parseBodyNodeRecursive(*object, *bn.getChildBodyNode(i));
     }
+}
 
-    std::vector<std::shared_ptr<Object>> World::updatedShapeObjects() {
-        std::vector<std::shared_ptr<Object>> objs;
-        objs.insert(objs.end(), _updatedShapeObjects.begin(), _updatedShapeObjects.end());
-        return objs;
-    }
-
-    World& World::clearUpdatedShapeObjects() {
-        _updatedShapeObjects.clear();
-        return *this;
-    }
-
-    std::vector<std::shared_ptr<Object>> World::bodyObjects() {
-        std::vector<std::shared_ptr<Object>> objs;
-        for(auto& obj : _dartToMagnum)
-            if(obj.second->bodyNode())
-                objs.emplace_back(obj.second);
-        
-        return objs;
-    }
-
-    std::shared_ptr<Object> World::objectFromDartFrame(dart::dynamics::Frame* frame) {
-        return _dartToMagnum[frame];
-    }
-
-    std::shared_ptr<dart::simulation::World> World::world() {
-        return _dartWorld;
-    }
 }}

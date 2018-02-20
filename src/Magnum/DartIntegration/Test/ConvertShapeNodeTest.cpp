@@ -461,7 +461,7 @@ void ConvertShapeNodeTest::pendulum() {
     pendulum->getDof(2)->setPosition(Double(Radd(20.0_deg)));
     pendulum->getDof(3)->setPosition(Double(Radd(-50.0_deg)));
 
-    for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
+    for(auto& shapeNode: bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
         auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
         auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material);
@@ -470,7 +470,7 @@ void ConvertShapeNodeTest::pendulum() {
         CORRADE_VERIFY(shapeDataPrimitive);
         auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh);
         CORRADE_VERIFY(shapeDataMesh);
-        
+
         CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);
 
         CORRADE_COMPARE(shapeDataMaterial->meshes.size(), 0);
@@ -497,7 +497,7 @@ void ConvertShapeNodeTest::soft() {
     auto soft = dart::dynamics::Skeleton::create("soft");
     auto bn = addSoftBody<dart::dynamics::WeldJoint>(soft, "soft box");
 
-    for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
+    for(auto& shapeNode: bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
         auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All);
         CORRADE_VERIFY(shapeDataAll);
         auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material);
@@ -506,7 +506,7 @@ void ConvertShapeNodeTest::soft() {
         CORRADE_VERIFY(shapeDataPrimitive);
         auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh);
         CORRADE_VERIFY(shapeDataMesh);
-        
+
         CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);
 
         CORRADE_COMPARE(shapeDataMaterial->meshes.size(), 0);
@@ -546,8 +546,8 @@ void ConvertShapeNodeTest::urdf() {
     auto tmp_skel = loader.parseSkeleton(filename);
     CORRADE_VERIFY(tmp_skel);
 
-    for(auto& bn : tmp_skel->getBodyNodes()) {
-        for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
+    for(auto& bn: tmp_skel->getBodyNodes()) {
+        for(auto& shapeNode: bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
             auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
             CORRADE_VERIFY(shapeDataAll);
             auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material, importer.get());
@@ -556,7 +556,7 @@ void ConvertShapeNodeTest::urdf() {
             CORRADE_VERIFY(shapeDataPrimitive);
             auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh, importer.get());
             CORRADE_VERIFY(shapeDataMesh);
-            
+
             CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);
 
             CORRADE_COMPARE(shapeDataMaterial->meshes.size(), 0);
@@ -604,8 +604,8 @@ void ConvertShapeNodeTest::multiMesh() {
     auto tmp_skel = loader.parseSkeleton(filename);
     CORRADE_VERIFY(tmp_skel);
 
-    for(auto& bn : tmp_skel->getBodyNodes()) {
-        for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
+    for(auto& bn: tmp_skel->getBodyNodes()) {
+        for(auto& shapeNode: bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
             auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
             CORRADE_VERIFY(shapeDataAll);
             auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material, importer.get());
@@ -614,7 +614,7 @@ void ConvertShapeNodeTest::multiMesh() {
             CORRADE_VERIFY(shapeDataPrimitive);
             auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh, importer.get());
             CORRADE_VERIFY(shapeDataMesh);
-            
+
             CORRADE_COMPARE(shapeDataAll->meshes.size(), 2);
 
             CORRADE_COMPARE(shapeDataMaterial->meshes.size(), 0);
@@ -656,8 +656,8 @@ void ConvertShapeNodeTest::texture() {
     auto tmp_skel = loader.parseSkeleton(filename);
     CORRADE_VERIFY(tmp_skel);
 
-    for(auto& bn : tmp_skel->getBodyNodes()) {
-        for(auto& shapeNode : bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
+    for(auto& bn: tmp_skel->getBodyNodes()) {
+        for(auto& shapeNode: bn->getShapeNodesWith<dart::dynamics::VisualAspect>()) {
             auto shapeDataAll = convertShapeNode(*shapeNode, ConvertShapeType::All, importer.get());
             CORRADE_VERIFY(shapeDataAll);
             auto shapeDataMaterial = convertShapeNode(*shapeNode, ConvertShapeType::Material, importer.get());
@@ -666,7 +666,7 @@ void ConvertShapeNodeTest::texture() {
             CORRADE_VERIFY(shapeDataPrimitive);
             auto shapeDataMesh = convertShapeNode(*shapeNode, ConvertShapeType::Mesh, importer.get());
             CORRADE_VERIFY(shapeDataMesh);
-            
+
             CORRADE_COMPARE(shapeDataAll->meshes.size(), 1);
 
             CORRADE_COMPARE(shapeDataMaterial->meshes.size(), 0);

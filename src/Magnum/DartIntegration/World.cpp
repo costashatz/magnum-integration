@@ -30,6 +30,7 @@ namespace Magnum { namespace DartIntegration {
     World& World::refresh() {
         if (!_dartWorld)
             return *this;
+        /* clear update flags */
         for(auto& obj : _dartToMagnum)
             obj.second->clearUpdateFlag();
 
@@ -37,10 +38,12 @@ namespace Magnum { namespace DartIntegration {
         if (!_importer)
             _importer = _manager.loadAndInstantiate("AssimpImporter");
 
+        /* parse all skeletons in _dartWorld */
         for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
             parseSkeleton(_object, *_dartWorld->getSkeleton(i));
         }
 
+        /* remove unused objects */
         clearUnusedObjects();
 
         return *this;

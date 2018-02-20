@@ -56,7 +56,7 @@ the `dart::dynamics::Skeleton` objects in the World and keeps track of a list of
 @ref DartIntegration::Object instances. It automatically captures any change that
 ocurres in the `dart::simulation::World`. After each graphics @ref DartIntegration::World::refresh
 the user has access to the deleted shapes via @ref DartIntegration::World::unusedObjects and
-can get the update shapes (material or mesh) via @ref DartIntegration::World::updatedShapeObjects.
+can get the updated shapes (material or mesh) via @ref DartIntegration::World::updatedShapeObjects.
 
 @section DartIntegration-World-usage Usage
 
@@ -74,8 +74,10 @@ auto world = std::make_shared<DartIntegration::World>(object, dartWorld);
 @endcode
 
 Only the `dart::simulation::World` can affect the transformation of the Magnum
-@ref DartIntegration::World and not the other way around. To update the world
-and get the updated shapes you can do the following:
+@ref DartIntegration::World and not the other way around. Of course, one can
+change things directly in `dart::simulation::World` and observe the changes in
+@ref DartIntegration::World. To update the world and get the updated shapes you
+can do the following:
 
 @code{.cpp}
 std::shared_ptr<DartIntegration::World> world = createDartIntegrationWorld();
@@ -95,10 +97,10 @@ for(UnsignedInt i = 0; i < simulationSteps; i++) {
         deleteObjectsFromScene(unusedObjects);
 
         // get updated shapes;
-        // ones that either the material or the mesh pointers have changed
+        // ones that either the materials or the meshes have changed
         std::vector<std::shared_ptr<Object>> updatedObjects = world->updatedShapeObjects();
 
-        updatePointersAndMaterials(updatedObjects);
+        updateMeshesAndMaterials(updatedObjects);
 
         // clear list of updated objects
         world->clearUpdatedShapeObjects();
@@ -161,7 +163,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Helper function to get @ref Object from a DART Frame/BodyNode/ShapeNode */
         std::shared_ptr<Object> objectFromDartFrame(dart::dynamics::Frame* frame);
 
-        /** @brief Get DART world object
+        /** @brief Get the dart::simulation::World object
          * for making DART specific changes/updates
          */
         std::shared_ptr<dart::simulation::World> world();
@@ -216,7 +218,7 @@ template <class T> void World::parseBodyNodeRecursive(T& parent, dart::dynamics:
     for (auto& shape : visualShapes) {
         auto it = _dartToMagnum.insert(std::make_pair(static_cast<dart::dynamics::Frame*>(shape), nullptr));
         if (it.second) {
-            /* create objects for the ShapeNodes to keep track of inner transformations */
+            /* create object for the ShapeNode to keep track of inner transformations */
             auto shapeObj = objectCreator(*object);
             it.first->second = dartShapeObjectCreator(*shapeObj, shape);
         }

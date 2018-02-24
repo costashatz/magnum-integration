@@ -56,6 +56,13 @@ namespace Magnum { namespace DartIntegration {
 struct DrawData {
     #ifndef DOXYGEN_GENERATING_OUTPUT
     explicit DrawData(Containers::Array<Mesh> meshes, Containers::Array<Buffer> vertexBuffers, Containers::Array<Containers::Optional<Buffer>> indexBuffers, Containers::Array<Trade::PhongMaterialData> materials, Containers::Array<Containers::Optional<Texture2D>> textures, const Vector3& scaling = Vector3{1.f, 1.f, 1.f});
+
+    DrawData(const DrawData&) = delete;
+    DrawData(DrawData&&) noexcept = default;
+    DrawData& operator=(const DrawData&) = delete;
+    DrawData& operator=(DrawData&&) noexcept = default;
+
+    ~DrawData() = default;
     #endif
     /** @brief Meshes */
     Containers::Array<Mesh> meshes;

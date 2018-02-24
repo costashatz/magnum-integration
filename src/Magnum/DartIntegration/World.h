@@ -148,7 +148,7 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Get unused objects; all objects that were not updated during the last refresh call
          * Note: this list will be cleared once a new refresh call is made
          */
-        std::vector<std::shared_ptr<Object>> unusedObjects() { return _toRemove; }
+        std::vector<std::reference_wrapper<Object>> unusedObjects();
 
         /** @brief Get all @ref Objects */
         std::vector<std::reference_wrapper<Object>> objects();
@@ -165,13 +165,16 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         /** @brief Get all @ref Objects that do not have shapes */
         std::vector<std::reference_wrapper<Object>> bodyObjects();
 
-        /** @brief Helper function to get @ref Object from a DART Frame/BodyNode/ShapeNode */
-        std::reference_wrapper<Object> objectFromDartFrame(dart::dynamics::Frame* frame);
+        /** @brief Helper function to get @ref Object from a DART Frame/BodyNode/ShapeNode
+         * if the DART frame is not part of the World, the function throws an std::out_of_range
+         * exception.
+        */
+        Object& objectFromDartFrame(dart::dynamics::Frame* frame) { return *_dartToMagnum.at(frame); }
 
         /** @brief Get the dart::simulation::World object
          * for making DART specific changes/updates
          */
-        std::shared_ptr<dart::simulation::World> world() { return _dartWorld; }
+        dart::simulation::World& world() { return _dartWorld; }
 
     private:
         /** @brief Non-templated constructor */
@@ -195,9 +198,9 @@ class MAGNUM_DARTINTEGRATION_EXPORT World {
         SceneGraph::AbstractBasicObject3D<Float>& _object;
         PluginManager::Manager<Trade::AbstractImporter> _manager;
         std::unique_ptr<Trade::AbstractImporter> _importer;
-        std::shared_ptr<dart::simulation::World> _dartWorld;
+        dart::simulation::World& _dartWorld;
         std::unordered_map<dart::dynamics::Frame*, std::unique_ptr<Object>> _dartToMagnum;
-        std::vector<std::shared_ptr<Object>> _toRemove;
+        std::vector<std::unique_ptr<Object>> _toRemove;
         std::unordered_set<Object*> _updatedShapeObjects;
 };
 

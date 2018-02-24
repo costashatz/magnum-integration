@@ -67,7 +67,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
        shape->getType() == dart::dynamics::LineSegmentShape::getStaticType() ||
        shape->getType() == dart::dynamics::MultiSphereConvexHullShape::getStaticType() ||
        shape->getType() == dart::dynamics::PlaneShape::getStaticType()) {
-        Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported" << Debug::resetColor;
+        Error{} << "DartIntegration::convertShapeNode(): shape type" << shape->getType() << "is not supported";
         return Containers::NullOpt;
     }
 
@@ -149,7 +149,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
         }
     } else if(shape->getType() == dart::dynamics::MeshShape::getStaticType()) {
         if (!importer) {
-            Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): AssimpImporter is not available and you are trying to load a dart::dynamics::MeshShape" << Debug::resetColor;
+            Error{} << "DartIntegration::convertShapeNode(): AssimpImporter is not available and you are trying to load a dart::dynamics::MeshShape";
             return Containers::NullOpt;
         }
         auto meshShape = std::static_pointer_cast<dart::dynamics::MeshShape>(shape);
@@ -165,7 +165,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
 
         bool loaded = importer->openState(aiMesh, meshPath);
         if(!loaded || importer->mesh3DCount() < 1) {
-            Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): Could not load aiScene or there is no mesh in it" << Debug::resetColor;
+            Error{} << "DartIntegration::convertShapeNode(): Could not load aiScene or there is no mesh in it";
             return Containers::NullOpt;
         }
 
@@ -187,7 +187,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
             Trade::MeshObjectData3D& meshObjectData = static_cast<Trade::MeshObjectData3D&>(*objectData);
             Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(meshObjectData.instance());
             if(!meshData){
-                Error{} << Debug::boldColor(Debug::Color::Red) << "DartIntegration::convertShapeNode(): Could not load mesh with index" << meshObjectData.instance() << Debug::resetColor;
+                Error{} << "DartIntegration::convertShapeNode(): Could not load mesh with index" << meshObjectData.instance();
                 return Containers::NullOpt;
             }
 
@@ -200,7 +200,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                         if(matPtr)
                             materials[j] = std::move(*static_cast<Trade::PhongMaterialData*>(matPtr.get()));
                         else {
-                            Warning{} << Debug::boldColor(Debug::Color::Yellow) << "DartIntegration::convertShapeNode(): Could not load material with index" << meshObjectData.material() << Debug::nospace << ".Falling back to SHAPE_COLOR mode" << Debug::resetColor;
+                            Warning{} << "DartIntegration::convertShapeNode(): Could not load material with index" << meshObjectData.material() << Debug::nospace << ".Falling back to SHAPE_COLOR mode";
                             materials[j] = std::move(nodeMaterial);
                         }
                     }
@@ -208,8 +208,8 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                         /* get diffuse color from Mesh color */
                         if(meshData->hasColors()) {
                             /* use max index if MeshShape color index is bigger than available;
-                                * this is the behavior described in Dart
-                                */
+                             * this is the behavior described in Dart
+                             */
                             Int colorIndex = (static_cast<UnsignedInt>(meshShape->getColorIndex())>=meshData->colors(0).size()) ? meshData->colors(0).size()-1: meshShape->getColorIndex();
                             Color4 meshColor = meshData->colors(0)[colorIndex];
                             materials[j] = Trade::PhongMaterialData{Trade::PhongMaterialData::Flags{}, 80.f};
@@ -220,7 +220,7 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                         }
                         /* fallback to SHAPE_COLOR if MeshData has no colors */
                         else {
-                            Warning{} << Debug::boldColor(Debug::Color::Yellow) << "DartIntegration::convertShapeNode(): Assimp mesh has no colors. Falling back to SHAPE_COLOR mode" << Debug::resetColor;
+                            Warning{} << "DartIntegration::convertShapeNode(): Assimp mesh has no colors. Falling back to SHAPE_COLOR mode";
                             materials[j] = std::move(nodeMaterial);
                         }
                     }
@@ -245,14 +245,14 @@ Containers::Optional<ShapeData> convertShapeNode(dart::dynamics::ShapeNode& shap
                 /* Cannot load, leave this element set to NullOpt */
                 Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
                 if (!textureData || textureData->type() != Trade::TextureData::Type::Texture2D) {
-                    Warning{} << Debug::boldColor(Debug::Color::Yellow) << "Cannot load texture, skipping" << Debug::resetColor;
+                    Warning{} << "Cannot load texture, skipping";
                     continue;
                 }
 
                 /* Cannot load, leave this element set to NullOpt */
                 Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image());
                 if (!imageData) {
-                    Warning{} << Debug::boldColor(Debug::Color::Yellow) << "Cannot load texture image, skipping" << Debug::resetColor;
+                    Warning{} << "Cannot load texture image, skipping";
                     continue;
                 }
 

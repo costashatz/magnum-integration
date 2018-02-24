@@ -118,21 +118,17 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
     dart::dynamics::ShapeNode& shapeNode = *this->shapeNode();
     dart::dynamics::ShapePtr shape = shapeNode.getShape();
 
-    bool getMaterial = shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_COLOR);
-    bool getPrimitive = shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_PRIMITIVE);
-    bool getMesh = shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_VERTICES)
-                    || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_ELEMENTS)
-                    || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC);
-
     ConvertShapeTypes loadType;
     if(firstTime)
         loadType = ConvertShapeType::All;
     else {
-        if(getMaterial)
+        if(shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_COLOR))
             loadType |= ConvertShapeType::Material;
-        if(getPrimitive)
+        if(shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_PRIMITIVE))
             loadType |= ConvertShapeType::Primitive;
-        if(getMesh)
+        if(shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_VERTICES)
+                    || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC_ELEMENTS)
+                    || shape->checkDataVariance(dart::dynamics::Shape::DataVariance::DYNAMIC))
             loadType |= ConvertShapeType::Mesh;
     }
 
@@ -201,7 +197,7 @@ bool Object::extractDrawData(Trade::AbstractImporter* importer) {
 
     /* If we got here, everything went OK;
      * update flag for rendering */
-    _updatedMesh = firstTime || getMaterial || getPrimitive || getMesh;
+    _updatedMesh = !!loadType;
 
     return true;
 }

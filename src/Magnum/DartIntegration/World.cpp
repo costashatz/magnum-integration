@@ -32,7 +32,7 @@
 #include <Magnum/Trade/PhongMaterialData.h>
 
 namespace Magnum { namespace DartIntegration {
-World::World(SceneGraph::AbstractBasicObject3D<Float>& object, std::shared_ptr<dart::simulation::World> world): _object(object), _manager{MAGNUM_PLUGINS_IMPORTER_DIR}, _dartWorld(world) {
+World::World(SceneGraph::AbstractBasicObject3D<Float>& object, std::shared_ptr<dart::simulation::World> world): _object(object), _manager{MAGNUM_PLUGINS_IMPORTER_DIR}, _dartWorld(*world) {
     /* load Assimp importer */
     _importer = _manager.loadAndInstantiate("AssimpImporter");
 }
@@ -40,15 +40,13 @@ World::World(SceneGraph::AbstractBasicObject3D<Float>& object, std::shared_ptr<d
 World::~World() = default;
 
 World& World::refresh() {
-    if (!_dartWorld)
-        return *this;
     /* clear update flags */
     for(auto& obj: _dartToMagnum)
         obj.second->clearUpdateFlag();
 
     /* parse all skeletons in _dartWorld */
-    for(size_t i = 0; i < _dartWorld->getNumSkeletons(); i++) {
-        parseSkeleton(_object, *_dartWorld->getSkeleton(i));
+    for(size_t i = 0; i < _dartWorld.getNumSkeletons(); i++) {
+        parseSkeleton(_object, *_dartWorld.getSkeleton(i));
     }
 
     /* remove unused objects */
@@ -58,7 +56,7 @@ World& World::refresh() {
 }
 
 World& World::step() {
-    _dartWorld->step();
+    _dartWorld.step();
     return *this;
 }
 
@@ -82,6 +80,14 @@ World& World::clearUnusedObjects() {
     }
 
     return *this;
+}
+
+std::vector<std::reference_wrapper<Object>> World::unusedObjects() {
+    std::vector<std::reference_wrapper<Object>> objs;
+    for(auto& obj: _toRemove)
+        objs.emplace_back(std::ref(*obj));
+
+    return objs;
 }
 
 std::vector<std::reference_wrapper<Object>> World::objects() {
@@ -119,10 +125,6 @@ std::vector<std::reference_wrapper<Object>> World::bodyObjects() {
             objs.emplace_back(std::ref(*obj.second));
 
     return objs;
-}
-
-std::reference_wrapper<Object> World::objectFromDartFrame(dart::dynamics::Frame* frame) {
-    return std::ref(*_dartToMagnum[frame]);
 }
 
 void World::parseSkeleton(SceneGraph::AbstractBasicObject3D<Float>& parent, dart::dynamics::Skeleton& skel){
